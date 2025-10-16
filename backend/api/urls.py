@@ -1,6 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import *
+from .views import (
+    UserViewSet, ServiceViewSet, AppointmentViewSet, ToothChartViewSet,
+    DentalRecordViewSet, DocumentViewSet, InventoryItemViewSet, BillingViewSet,
+    ClinicLocationViewSet, TreatmentPlanViewSet, TeethImageViewSet,
+    register, login, logout, current_user, analytics
+)
 
 router = DefaultRouter()
 router.register('users', UserViewSet)

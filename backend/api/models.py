@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 class User(AbstractUser):
     USER_TYPES = (
@@ -21,6 +23,40 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.get_full_name()} ({self.user_type})"
+    
+    def update_patient_status(self):
+        """Update patient status based on last appointment date"""
+        if self.user_type != 'patient':
+            return
+        
+        try:
+            # Get last appointment
+            last_appointment = self.patient_appointments.order_by('-date').first()
+            
+            if last_appointment:
+                # Calculate if last appointment was more than 2 years ago
+                two_years_ago = timezone.now().date() - timedelta(days=730)
+                if last_appointment.date < two_years_ago:
+                    self.is_active_patient = False
+                else:
+                    self.is_active_patient = True
+            else:
+                # No appointments yet - keep as active for new patients
+                self.is_active_patient = True
+            
+            self.save(update_fields=['is_active_patient'])
+        except Exception:
+            # If patient_appointments relationship doesn't exist yet, keep as active
+            self.is_active_patient = True
+    
+    def get_last_appointment_date(self):
+        """Get the date of the last appointment"""
+        try:
+            last_appointment = self.patient_appointments.order_by('-date').first()
+            return last_appointment.date if last_appointment else None
+        except Exception:
+            # If patient_appointments relationship doesn't exist yet, return None
+            return None
 
 
 class Service(models.Model):
@@ -204,8 +240,10 @@ class TeethImage(models.Model):
         verbose_name_plural = 'Teeth Images'
 
     def save(self, *args, **kwargs):
-        # When saving a new image as latest, mark all other patient images as not latest
-        if self.is_latest:
+        # Mark all other patient images as not latest BEFORE saving this one
+        # to avoid the new image appearing in the wrong position
+        if self.is_latest and not self.pk:
+            # Only update if this is a new record (no primary key yet)
             TeethImage.objects.filter(patient=self.patient, is_latest=True).update(is_latest=False)
         super().save(*args, **kwargs)
 

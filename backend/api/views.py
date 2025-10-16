@@ -6,8 +6,17 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.db.models import Sum, Count, Q
 from datetime import date, timedelta
-from .models import *
-from .serializers import *
+from .models import (
+    User, Service, Appointment, ToothChart, DentalRecord,
+    Document, InventoryItem, Billing, ClinicLocation,
+    TreatmentPlan, TeethImage
+)
+from .serializers import (
+    UserSerializer, ServiceSerializer, AppointmentSerializer,
+    ToothChartSerializer, DentalRecordSerializer, DocumentSerializer,
+    InventoryItemSerializer, BillingSerializer, ClinicLocationSerializer,
+    TreatmentPlanSerializer, TeethImageSerializer
+)
 
 
 @api_view(['POST'])
@@ -47,7 +56,6 @@ def login(request):
             print(f"[Django] Found user by email: {username}, trying with username: {user_obj.username}")
         except User.DoesNotExist:
             print(f"[Django] No user found with email: {username}")
-            pass
     
     if user:
         token, _ = Token.objects.get_or_create(user=user)
@@ -78,6 +86,11 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def patients(self, request):
         patients = User.objects.filter(user_type='patient')
+        
+        # Update patient status based on last appointment (2-year rule)
+        for patient in patients:
+            patient.update_patient_status()
+        
         serializer = self.get_serializer(patients, many=True)
         return Response(serializer.data)
 
@@ -113,6 +126,18 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         if user.user_type == 'patient':
             return Appointment.objects.filter(patient=user)
         return Appointment.objects.all()
+    
+    def perform_create(self, serializer):
+        """Update patient status after creating appointment"""
+        appointment = serializer.save()
+        if appointment.patient:
+            appointment.patient.update_patient_status()
+    
+    def perform_update(self, serializer):
+        """Update patient status after updating appointment"""
+        appointment = serializer.save()
+        if appointment.patient:
+            appointment.patient.update_patient_status()
 
     @action(detail=False, methods=['get'])
     def today(self, request):

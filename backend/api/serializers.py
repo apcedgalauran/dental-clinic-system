@@ -1,17 +1,32 @@
 from rest_framework import serializers
-from .models import *
+from .models import (
+    User, Service, Appointment, ToothChart, DentalRecord, 
+    Document, InventoryItem, Billing, ClinicLocation, 
+    TreatmentPlan, TeethImage
+)
+
+# Constants for repeated string literals
+PATIENT_FULL_NAME = 'patient.get_full_name'
+CREATED_BY_FULL_NAME = 'created_by.get_full_name'
 
 class UserSerializer(serializers.ModelSerializer):
+    last_appointment_date = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'user_type', 
                   'phone', 'address', 'birthday', 'age', 'profile_picture', 
-                  'is_active_patient', 'created_at']
+                  'is_active_patient', 'created_at', 'last_appointment_date']
         extra_kwargs = {'password': {'write_only': True}}
 
+    def get_last_appointment_date(self, obj):
+        """Get the last appointment date for patients"""
+        if obj.user_type == 'patient':
+            return obj.get_last_appointment_date()
+        return None
+
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+        return User.objects.create_user(**validated_data)
 
 
 class ServiceSerializer(serializers.ModelSerializer):
@@ -21,7 +36,7 @@ class ServiceSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
     patient_email = serializers.CharField(source='patient.email', read_only=True)
     dentist_name = serializers.CharField(source='dentist.get_full_name', read_only=True)
     service_name = serializers.CharField(source='service.name', read_only=True)
@@ -38,7 +53,7 @@ class ToothChartSerializer(serializers.ModelSerializer):
 
 
 class DentalRecordSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    created_by_name = serializers.CharField(source=CREATED_BY_FULL_NAME, read_only=True)
 
     class Meta:
         model = DentalRecord
@@ -62,8 +77,8 @@ class InventoryItemSerializer(serializers.ModelSerializer):
 
 
 class BillingSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
-    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
+    created_by_name = serializers.CharField(source=CREATED_BY_FULL_NAME, read_only=True)
 
     class Meta:
         model = Billing
@@ -77,7 +92,7 @@ class ClinicLocationSerializer(serializers.ModelSerializer):
 
 
 class TreatmentPlanSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    created_by_name = serializers.CharField(source=CREATED_BY_FULL_NAME, read_only=True)
 
     class Meta:
         model = TreatmentPlan
@@ -85,7 +100,7 @@ class TreatmentPlanSerializer(serializers.ModelSerializer):
 
 
 class TeethImageSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
     uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
     image_url = serializers.SerializerMethodField()
 

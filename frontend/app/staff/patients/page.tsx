@@ -61,6 +61,17 @@ export default function StaffPatients() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [newPatient, setNewPatient] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    birthday: "",
+    age: "",
+    address: "",
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Fetch real patients from API
   useEffect(() => {
@@ -73,25 +84,30 @@ export default function StaffPatients() {
         console.log("Fetched patients:", response)
         
         // Transform API response to Patient interface
-        const transformedPatients = response.map((user: any) => ({
-          id: user.id,
-          name: `${user.first_name} ${user.last_name}`,
-          email: user.email,
-          phone: user.phone || "N/A",
-          lastVisit: user.created_at?.split('T')[0] || "N/A",
-          status: "active" as const,
-          address: user.address || "N/A",
-          dateOfBirth: user.birthday || "N/A",
-          age: user.age || 0,
-          gender: user.gender || "Not specified",
-          medicalHistory: [],
-          allergies: [],
-          upcomingAppointments: [],
-          pastAppointments: 0,
-          totalBilled: 0,
-          balance: 0,
-          notes: "",
-        }))
+        const transformedPatients = response.map((user: any) => {
+          // Determine status based on last appointment date
+          let status: "active" | "inactive" = user.is_active_patient ? "active" : "inactive"
+          
+          return {
+            id: user.id,
+            name: `${user.first_name} ${user.last_name}`,
+            email: user.email,
+            phone: user.phone || "N/A",
+            lastVisit: user.last_appointment_date || user.created_at?.split('T')[0] || "N/A",
+            status: status,
+            address: user.address || "N/A",
+            dateOfBirth: user.birthday || "N/A",
+            age: user.age || 0,
+            gender: user.gender || "Not specified",
+            medicalHistory: [],
+            allergies: [],
+            upcomingAppointments: [],
+            pastAppointments: 0,
+            totalBilled: 0,
+            balance: 0,
+            notes: "",
+          }
+        })
         
         setPatients(transformedPatients)
       } catch (error) {
@@ -222,6 +238,69 @@ export default function StaffPatients() {
     e.stopPropagation()
     setSelectedPatient(patient)
     setShowImageUpload(true)
+  }
+
+  const handleAddPatient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      // Register the patient
+      await api.register({
+        username: newPatient.email,
+        email: newPatient.email,
+        password: newPatient.password,
+        first_name: newPatient.firstName,
+        last_name: newPatient.lastName,
+        user_type: "patient",
+        phone: newPatient.phone,
+        birthday: newPatient.birthday || null,
+        age: newPatient.age ? parseInt(newPatient.age) : null,
+        address: newPatient.address || null,
+      })
+
+      // Refresh the patient list
+      const response = await api.getPatients(token!)
+      const transformedPatients = response.map((user: any) => ({
+        id: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        email: user.email,
+        phone: user.phone || "N/A",
+        lastVisit: user.last_appointment_date || user.created_at?.split('T')[0] || "N/A",
+        status: user.is_active_patient ? "active" : "inactive",
+        address: user.address || "N/A",
+        dateOfBirth: user.birthday || "N/A",
+        age: user.age || 0,
+        gender: user.gender || "Not specified",
+        medicalHistory: [],
+        allergies: [],
+        upcomingAppointments: [],
+        pastAppointments: 0,
+        totalBilled: 0,
+        balance: 0,
+        notes: "",
+      }))
+      setPatients(transformedPatients)
+
+      // Reset form and close modal
+      setNewPatient({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        password: "",
+        birthday: "",
+        age: "",
+        address: "",
+      })
+      setShowAddModal(false)
+      alert("Patient added successfully! They can now log in with their email and password.")
+    } catch (error: any) {
+      console.error("Error adding patient:", error)
+      alert("Failed to add patient: " + (error.message || "Unknown error"))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -615,8 +694,8 @@ export default function StaffPatients() {
       {/* Add Patient Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-[var(--color-border)] px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-white border-b border-[var(--color-border)] px-6 py-4 flex items-center justify-between rounded-t-2xl">
               <h2 className="text-2xl font-serif font-bold text-[var(--color-primary)]">Add New Patient</h2>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -626,55 +705,112 @@ export default function StaffPatients() {
               </button>
             </div>
 
-            <form className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleAddPatient} className="p-6 space-y-4">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">First Name</label>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">First Name *</label>
                   <input
                     type="text"
                     required
+                    value={newPatient.firstName}
+                    onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                    placeholder="Enter first name"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Last Name</label>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Last Name *</label>
                   <input
                     type="text"
                     required
+                    value={newPatient.lastName}
+                    onChange={(e) => setNewPatient({ ...newPatient, lastName: e.target.value })}
+                    placeholder="Enter last name"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Email</label>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Email *</label>
                   <input
                     type="email"
                     required
+                    value={newPatient.email}
+                    onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                    placeholder="patient@example.com"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Phone</label>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Password *</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPatient.password}
+                    onChange={(e) => setNewPatient({ ...newPatient, password: e.target.value })}
+                    placeholder="Enter password (min 6 characters)"
+                    minLength={6}
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Phone *</label>
                   <input
                     type="tel"
                     required
+                    value={newPatient.phone}
+                    onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                    placeholder="+63 912 345 6789"
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={newPatient.birthday}
+                    onChange={(e) => setNewPatient({ ...newPatient, birthday: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Age</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={newPatient.age}
+                    onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
+                    placeholder="Enter age"
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Address</label>
+                  <textarea
+                    rows={2}
+                    value={newPatient.address}
+                    onChange={(e) => setNewPatient({ ...newPatient, address: e.target.value })}
+                    placeholder="Enter address"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 border-t border-[var(--color-border)]">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium disabled:opacity-50"
                 >
-                  Add Patient
+                  {isSubmitting ? "Adding..." : "Add Patient"}
                 </button>
               </div>
             </form>

@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import *
+from .models import (
+    User, Service, Appointment, ToothChart, DentalRecord,
+    Document, InventoryItem, Billing, ClinicLocation,
+    TreatmentPlan, TeethImage
+)
 
 
 @admin.register(User)

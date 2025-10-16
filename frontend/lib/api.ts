@@ -58,6 +58,28 @@ export const api = {
     return response.json()
   },
 
+  // Profile endpoints
+  getProfile: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/profile/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error("Failed to fetch profile")
+    return response.json()
+  },
+
+  updateProfile: async (token: string, data: any) => {
+    const response = await fetch(`${API_BASE_URL}/profile/`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error("Failed to update profile")
+    return response.json()
+  },
+
   // Services endpoints
   getServices: async () => {
     const response = await fetch(`${API_BASE_URL}/services/`)

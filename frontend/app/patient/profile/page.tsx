@@ -1,29 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Edit2, Download } from "lucide-react"
+import { useAuth } from "@/lib/auth"
 
 export default function PatientProfile() {
+  const { user, token } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState({
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@email.com",
-    phone: "+63 912 345 6789",
-    birthday: "1990-05-15",
-    age: 34,
-    address: "123 Main Street, Makati City",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    birthday: "",
+    age: 0,
+    address: "",
   })
 
-  const documents = [
-    { id: 1, name: "X-Ray - Upper Jaw", type: "X-Ray", date: "2025-01-10", url: "#" },
-    { id: 2, name: "Tooth Scan - Full Mouth", type: "Scan", date: "2024-12-20", url: "#" },
-    { id: 3, name: "Treatment Report", type: "Report", date: "2024-11-15", url: "#" },
+  // Load real user data from auth context
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.first_name || "",
+        lastName: user.last_name || "",
+        email: user.email || "",
+        phone: (user as any).phone || "",
+        birthday: (user as any).birthday || "",
+        age: (user as any).age || 0,
+        address: (user as any).address || "",
+      })
+    }
+  }, [user])
+
+  const documents: any[] = [
+    // No sample documents - will be populated from real data
   ]
 
-  const handleSave = () => {
-    // TODO: Save to API
+  const handleSave = async () => {
+    // TODO: Implement API call to update profile
     setIsEditing(false)
+    alert("Profile updated! (Save functionality to be implemented)")
   }
 
   return (
@@ -176,27 +192,29 @@ export default function PatientProfile() {
       </div>
 
       {/* Downloadable Documents */}
-      <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-        <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-6">Downloadable Documents</h2>
-        <div className="space-y-3">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
-            >
-              <div>
-                <h3 className="font-medium text-[var(--color-text)]">{doc.name}</h3>
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  {doc.type} • {doc.date}
-                </p>
+      {documents.length > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+          <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-6">Downloadable Documents</h2>
+          <div className="space-y-3">
+            {documents.map((doc: any) => (
+              <div
+                key={doc.id}
+                className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              >
+                <div>
+                  <h3 className="font-medium text-[var(--color-text)]">{doc.name}</h3>
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    {doc.type} • {doc.date}
+                  </p>
+                </div>
+                <button className="p-2 hover:bg-white rounded-lg transition-colors">
+                  <Download className="w-5 h-5 text-[var(--color-primary)]" />
+                </button>
               </div>
-              <button className="p-2 hover:bg-white rounded-lg transition-colors">
-                <Download className="w-5 h-5 text-[var(--color-primary)]" />
-              </button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -1,48 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Calendar, Clock, User } from "lucide-react"
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
 
 export default function PatientAppointments() {
+  const { token } = useAuth()
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming")
+  const [allAppointments, setAllAppointments] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const upcomingAppointments = [
-    {
-      id: 1,
-      date: "2025-01-20",
-      time: "10:00 AM",
-      service: "Teeth Cleaning",
-      dentist: "Dr. Sarah Johnson",
-      status: "confirmed",
-    },
-    {
-      id: 2,
-      date: "2025-02-15",
-      time: "2:00 PM",
-      service: "Dental Check-up",
-      dentist: "Dr. Sarah Johnson",
-      status: "pending",
-    },
-  ]
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!token) return
 
-  const pastAppointments = [
-    {
-      id: 3,
-      date: "2024-12-10",
-      time: "3:00 PM",
-      service: "Root Canal",
-      dentist: "Dr. Sarah Johnson",
-      status: "completed",
-    },
-    {
-      id: 4,
-      date: "2024-11-05",
-      time: "11:00 AM",
-      service: "Teeth Whitening",
-      dentist: "Dr. Sarah Johnson",
-      status: "completed",
-    },
-  ]
+      try {
+        setIsLoading(true)
+        const data = await api.getAppointments(token)
+        setAllAppointments(data)
+      } catch (error) {
+        console.error("Error fetching appointments:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAppointments()
+  }, [token])
+
+  // Separate appointments into upcoming and past
+  const now = new Date()
+  const upcomingAppointments = allAppointments.filter((apt) => {
+    const aptDate = new Date(apt.date + 'T' + apt.time)
+    return aptDate >= now && apt.status !== 'completed' && apt.status !== 'cancelled'
+  })
+
+  const pastAppointments = allAppointments.filter((apt) => {
+    const aptDate = new Date(apt.date + 'T' + apt.time)
+    return aptDate < now || apt.status === 'completed' || apt.status === 'cancelled'
+  })
 
   const appointments = activeTab === "upcoming" ? upcomingAppointments : pastAppointments
 
@@ -94,10 +91,26 @@ export default function PatientAppointments() {
 
       {/* Appointments List */}
       <div className="space-y-4">
-        {appointments.map((appointment) => (
-          <div key={appointment.id} className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex-1">
+        {isLoading ? (
+          <div className="text-center py-12 text-[var(--color-text-muted)]">
+            <p>Loading appointments...</p>
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="bg-white rounded-xl border border-[var(--color-border)] p-12 text-center">
+            <Calendar className="w-16 h-16 mx-auto mb-4 text-[var(--color-text-muted)] opacity-30" />
+            <p className="text-lg font-medium text-[var(--color-text)] mb-2">
+              {activeTab === "upcoming" ? "No Upcoming Appointments" : "No Past Appointments"}
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              {activeTab === "upcoming" 
+                ? "You don't have any scheduled appointments yet" 
+                : "You haven't had any appointments yet"}
+            </p>
+          </div>
+        ) : (
+          appointments.map((appointment) => (
+            <div key={appointment.id} className="bg-white rounded-xl border border-[var(--color-border)] p-6">\n              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
                   <h3 className="text-xl font-semibold text-[var(--color-text)]">{appointment.service}</h3>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
@@ -133,7 +146,8 @@ export default function PatientAppointments() {
               )}
             </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   )

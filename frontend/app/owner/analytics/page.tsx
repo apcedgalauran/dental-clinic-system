@@ -48,18 +48,21 @@ export default function OwnerAnalytics() {
     switch (timeFilter) {
       case "daily":
         return { start: today, label: "Today" }
-      case "weekly":
+      case "weekly": {
         const weekStart = new Date(today)
         weekStart.setDate(today.getDate() - 7)
         return { start: weekStart, label: "Last 7 Days" }
-      case "monthly":
+      }
+      case "monthly": {
         const monthStart = new Date(today)
         monthStart.setDate(today.getDate() - 30)
         return { start: monthStart, label: "Last 30 Days" }
-      case "annual":
+      }
+      case "annual": {
         const yearStart = new Date(today)
         yearStart.setFullYear(today.getFullYear() - 1)
         return { start: yearStart, label: "Last 12 Months" }
+      }
     }
   }
 

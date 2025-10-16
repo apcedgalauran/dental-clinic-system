@@ -7,23 +7,22 @@ export default function StaffDashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
-  // Sample appointment data with dates
-  const allAppointments = [
-    { id: 1, date: "2025-10-16", time: "09:00 AM", patient: "John Doe", treatment: "Teeth Cleaning", status: "confirmed" },
-    { id: 2, date: "2025-10-16", time: "10:30 AM", patient: "Jane Smith", treatment: "Root Canal", status: "confirmed" },
-    { id: 3, date: "2025-10-16", time: "02:00 PM", patient: "Mike Johnson", treatment: "Dental Check-up", status: "pending" },
-    { id: 4, date: "2025-10-16", time: "03:30 PM", patient: "Sarah Williams", treatment: "Tooth Extraction", status: "confirmed" },
-    { id: 5, date: "2025-10-20", time: "10:00 AM", patient: "Robert Brown", treatment: "Teeth Whitening", status: "confirmed" },
-    { id: 6, date: "2025-10-22", time: "11:00 AM", patient: "Emily Davis", treatment: "Dental Implant", status: "pending" },
-    { id: 7, date: "2025-10-10", time: "09:30 AM", patient: "Michael Wilson", treatment: "Cleaning", status: "completed" },
-  ]
+  // No sample data - will be filled with real data
+  const allAppointments: Array<{
+    id: number
+    date: string
+    time: string
+    patient: string
+    treatment: string
+    status: string
+  }> = []
 
-  // Sample birthday data
-  const birthdays = [
-    { name: "Dr. Sarah Johnson", date: "2025-10-18", role: "Staff" },
-    { name: "Dr. Michael Chen", date: "2025-10-25", role: "Staff" },
-    { name: "Clinic Owner", date: "2025-10-30", role: "Owner" },
-  ]
+  // No sample birthday data - will be filled with real data
+  const birthdays: Array<{
+    name: string
+    date: string
+    role: string
+  }> = []
 
   // Get appointments for today
   const todayStr = new Date().toISOString().split('T')[0]
@@ -112,7 +111,7 @@ export default function StaffDashboard() {
               <Users className="w-6 h-6 text-green-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">248</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
           <p className="text-sm text-[var(--color-text-muted)]">Total Patients</p>
         </div>
 
@@ -122,7 +121,7 @@ export default function StaffDashboard() {
               <Clock className="w-6 h-6 text-purple-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">8</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
           <p className="text-sm text-[var(--color-text-muted)]">Upcoming Appointments</p>
         </div>
 
@@ -132,7 +131,7 @@ export default function StaffDashboard() {
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">5</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
           <p className="text-sm text-[var(--color-text-muted)]">Stock Alerts</p>
         </div>
       </div>
@@ -291,15 +290,15 @@ export default function StaffDashboard() {
           <div className="space-y-4">
             <div className="p-4 bg-[var(--color-background)] rounded-lg">
               <p className="text-sm text-[var(--color-text-muted)] mb-1">Active Patients</p>
-              <p className="text-2xl font-bold text-[var(--color-text)]">235</p>
+              <p className="text-2xl font-bold text-[var(--color-text)]">0</p>
             </div>
             <div className="p-4 bg-[var(--color-background)] rounded-lg">
               <p className="text-sm text-[var(--color-text-muted)] mb-1">Inactive Patients</p>
-              <p className="text-2xl font-bold text-[var(--color-text)]">13</p>
+              <p className="text-2xl font-bold text-[var(--color-text)]">0</p>
             </div>
             <div className="p-4 bg-[var(--color-background)] rounded-lg">
               <p className="text-sm text-[var(--color-text-muted)] mb-1">New This Month</p>
-              <p className="text-2xl font-bold text-[var(--color-text)]">18</p>
+              <p className="text-2xl font-bold text-[var(--color-text)]">0</p>
             </div>
           </div>
         </div>

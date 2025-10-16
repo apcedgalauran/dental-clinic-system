@@ -1,7 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Upload, Edit2, Search } from "lucide-react"
+import { Plus, Edit2, Search } from "lucide-react"
+
+type BillingStatus = "pending" | "paid" | "cancelled"
+type StatusFilter = "all" | BillingStatus
 
 interface Billing {
   id: number
@@ -35,6 +38,12 @@ export default function StaffBilling() {
     { id: 2, patient: "Jane Smith", amount: 8000, date: "2025-01-10", status: "paid" },
     { id: 3, patient: "Mike Johnson", amount: 2500, date: "2025-01-08", status: "paid" },
   ])
+
+  const getStatusBadgeClass = (status: BillingStatus) => {
+    if (status === 'paid') return 'bg-green-100 text-green-700'
+    if (status === 'cancelled') return 'bg-gray-100 text-gray-700'
+    return 'bg-amber-100 text-amber-700'
+  }
 
   const filteredBillings = statusFilter === "all" 
     ? billings 
@@ -152,11 +161,7 @@ export default function StaffBilling() {
                   <td className="px-6 py-4 text-[var(--color-text-muted)]">₱{billing.amount.toLocaleString()}</td>
                   <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.date}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      billing.status === 'paid' ? 'bg-green-100 text-green-700' :
-                      billing.status === 'cancelled' ? 'bg-gray-100 text-gray-700' :
-                      'bg-amber-100 text-amber-700'
-                    }`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(billing.status)}`}>
                       {billing.status.charAt(0).toUpperCase() + billing.status.slice(1)}
                     </span>
                   </td>

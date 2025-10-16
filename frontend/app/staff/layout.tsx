@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, Users, Calendar, Package, CreditCard, LogOut, Menu, X, ChevronDown, User } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 
-export default function StaffLayout({ children }: { children: React.ReactNode }) {
+export default function StaffLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname()
   const router = useRouter()
   const { logout, user } = useAuth()
@@ -148,7 +148,14 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
       {/* Overlay for mobile */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setIsSidebarOpen(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
+        />
       )}
     </div>
   )

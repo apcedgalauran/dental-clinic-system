@@ -30,7 +30,7 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     setError("")
     setIsLoading(true)
 
-    console.log("[v0] Registration form data:", formData)
+    console.log("[RegisterModal] Registration form data:", formData)
 
     try {
       const registrationData = {
@@ -41,17 +41,15 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
         password: formData.password,
         phone: formData.phone,
         birthday: formData.birthday,
-        age: parseInt(formData.age) || null,
+        age: formData.age ? parseInt(formData.age) : null,
         address: formData.address,
         user_type: "patient",
       }
 
-      console.log("[v0] Sending registration data:", registrationData)
+      console.log("[RegisterModal] Sending registration data:", registrationData)
       const response = await api.register(registrationData)
-      console.log("[v0] Registration response:", response)
+      console.log("[RegisterModal] Registration response:", response)
 
-      alert("Registration successful! Please login to continue.")
-      onClose()
       // Reset form
       setFormData({
         firstName: "",
@@ -63,17 +61,28 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
         address: "",
         password: "",
       })
+      
+      // Close modal first
+      onClose()
+      
+      // Show success message
+      alert("Registration successful! Please login with your email and password.")
+      
     } catch (err: any) {
-      console.error("[v0] Registration error:", err)
+      console.error("[RegisterModal] Registration error:", err)
       
       // Parse error message
       let errorMessage = "Registration failed. Please try again."
       try {
         const errorData = JSON.parse(err.message)
+        console.error("[RegisterModal] Parsed error data:", errorData)
+        
         if (errorData.username) {
           errorMessage = `Username: ${errorData.username.join(", ")}`
         } else if (errorData.email) {
           errorMessage = `Email: ${errorData.email.join(", ")}`
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail
         } else {
           errorMessage = JSON.stringify(errorData)
         }
