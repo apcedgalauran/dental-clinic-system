@@ -10,8 +10,7 @@ export default function Hero() {
               Your Smile, Our Priority
             </h1>
             <p className="text-lg text-[var(--color-text-muted)] mb-8 leading-relaxed">
-              Experience exceptional dental care with our team of experienced professionals. We provide comprehensive
-              dental services in a comfortable and welcoming environment.
+              We make some of the best dental practices from other countries available in the Philippines.
             </p>
             <div className="flex flex-wrap gap-4">
               <a

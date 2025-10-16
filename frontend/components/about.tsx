@@ -16,14 +16,10 @@ export default function About() {
           <div>
             <h3 className="text-2xl font-serif font-bold text-[var(--color-primary)] mb-4">Meet Our Lead Dentist</h3>
             <p className="text-[var(--color-text-muted)] leading-relaxed mb-6">
-              Dr. Sarah Johnson has been practicing dentistry for over 15 years, specializing in cosmetic and
-              restorative procedures. She graduated from the University of Dental Medicine with honors and has completed
-              advanced training in orthodontics and oral surgery.
+              Dr. Marvin F. Dorotheo founded the Dorotheo Dental and Diagnostic Center in 2001, a year after attaining the degree of Doctor of Dental Medicine from one of the leading and renowned Dentistry Schools in the Philippines, the Centro Escolar University.
             </p>
             <p className="text-[var(--color-text-muted)] leading-relaxed">
-              Her commitment to patient care and continuous learning has made her one of the most trusted dental
-              professionals in the community. She believes in creating a comfortable environment where patients feel
-              valued and cared for.
+              Dr. Marvs demonstrates a strong commitment to advancing his dental expertise through continuous education. He has pursued extensive training in the Philippines and internationally (USA, Australia, Netherlands), developing comprehensive skills in implantology, TMJ therapy, orthodontics, restorative and cosmetic dentistry, sleep medicine, and related disciplines.
             </p>
           </div>
         </div>
@@ -34,11 +30,10 @@ export default function About() {
               <span className="text-[var(--color-accent)] text-2xl font-bold">M</span>
             </div>
             <h3 className="text-xl font-semibold text-[var(--color-primary)] mb-3">Our Mission</h3>
-            <p className="text-[var(--color-text-muted)] leading-relaxed">
-              To provide exceptional dental care that improves the oral health and overall well-being of our patients.
-              We strive to create lasting relationships built on trust, compassion, and excellence in every treatment we
-              provide.
+            <p className="text-[var(--color-text-muted)] leading-relaxed italic">
+              "My vocation is my higher purpose. I sincerely believe in using my knowledge and expertise in helping people become the healthiest they can be. That is why I never stop learning because the field of dentistry continuously evolves and I only want to be able to provide the best dental solutions to my patients."
             </p>
+            <p className="text-[var(--color-primary)] font-semibold mt-3 text-right">- Dr. Marvin F. Dorotheo</p>
           </div>
 
           <div className="bg-white p-8 rounded-xl shadow-md border border-[var(--color-border)]">
@@ -46,22 +41,29 @@ export default function About() {
               <span className="text-white text-2xl font-bold">★</span>
             </div>
             <h3 className="text-xl font-semibold text-[var(--color-primary)] mb-3">What Makes Us Different</h3>
+            <p className="text-[var(--color-text-muted)] leading-relaxed mb-4">
+              At Dr. Marvin F. Dorotheo's Dental Clinic in Quezon City, we go beyond standard care to deliver excellence through innovation and compassion.
+            </p>
             <ul className="space-y-2 text-[var(--color-text-muted)]">
               <li className="flex items-start gap-2">
                 <span className="text-[var(--color-accent)] mt-1">•</span>
-                <span>State-of-the-art technology and equipment</span>
+                <span>Dedicated to your optimal oral health.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-[var(--color-accent)] mt-1">•</span>
-                <span>Personalized treatment plans for each patient</span>
+                <span>Continuously evolving with the latest dental advancements.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-[var(--color-accent)] mt-1">•</span>
-                <span>Comfortable and welcoming environment</span>
+                <span>Provides personalized, patient-centered treatments.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-[var(--color-accent)] mt-1">•</span>
-                <span>Flexible scheduling and emergency care</span>
+                <span>Prioritizes comfort, understanding, and long-term well-being.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[var(--color-accent)] mt-1">•</span>
+                <span>Partners with you to achieve a healthy, confident smile.</span>
               </li>
             </ul>
           </div>
