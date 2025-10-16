@@ -38,9 +38,64 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           </div>
           <span className="font-semibold text-[var(--color-primary)]">Dental Clinic</span>
         </Link>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2">
-          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mobile Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center"
+            >
+              <User className="w-5 h-5 text-white" />
+            </button>
+            {isProfileOpen && (
+              <div className="absolute right-0 top-12 w-48 bg-white rounded-lg shadow-lg border border-[var(--color-border)] p-2 z-50">
+                <Link
+                  href="/staff/profile"
+                  className="block px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-background)] rounded transition-colors"
+                >
+                  Edit Profile
+                </Link>
+              </div>
+            )}
+          </div>
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2">
+            {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Top Header for Desktop */}
+      <div className="hidden lg:block fixed top-0 right-0 z-30 bg-white border-b border-[var(--color-border)] px-6 py-3" style={{left: '16rem'}}>
+        <div className="flex items-center justify-end">
+          <div className="relative">
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
+            >
+              <div className="text-right">
+                <p className="font-medium text-[var(--color-text)] text-sm">
+                  {user ? `${user.first_name} ${user.last_name}` : "Staff Member"}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)]">Dentist</p>
+              </div>
+              <div className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isProfileOpen && (
+              <div className="absolute right-0 top-14 w-48 bg-white rounded-lg shadow-lg border border-[var(--color-border)] p-2 z-50">
+                <Link
+                  href="/staff/profile"
+                  className="block px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-background)] rounded transition-colors"
+                >
+                  Edit Profile
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Sidebar */}
@@ -57,36 +112,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </div>
               <span className="text-xl font-semibold text-[var(--color-primary)]">Dental Clinic</span>
             </Link>
-          </div>
-
-          {/* Profile Section */}
-          <div className="p-4 border-b border-[var(--color-border)]">
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[var(--color-background)] transition-colors"
-            >
-              <div className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-medium text-[var(--color-text)]">
-                  {user ? `${user.first_name} ${user.last_name}` : "Staff Member"}
-                </p>
-                <p className="text-xs text-[var(--color-text-muted)]">Dentist</p>
-              </div>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {isProfileOpen && (
-              <div className="mt-2 p-2 bg-[var(--color-background)] rounded-lg">
-                <Link
-                  href="/staff/profile"
-                  className="block px-3 py-2 text-sm text-[var(--color-text)] hover:bg-white rounded transition-colors"
-                >
-                  Edit Profile
-                </Link>
-              </div>
-            )}
           </div>
 
           <nav className="flex-1 p-4 space-y-2">
@@ -123,7 +148,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0">
+      <main className="lg:ml-64 pt-16 lg:pt-16">
         <div className="p-6 lg:p-8">{children}</div>
       </main>
 

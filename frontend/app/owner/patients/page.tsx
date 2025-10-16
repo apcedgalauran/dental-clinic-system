@@ -1,13 +1,63 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Plus, Eye } from "lucide-react"
+import { useState, Fragment } from "react"
+import { 
+  Search, 
+  Plus, 
+  Eye, 
+  ChevronDown, 
+  ChevronUp, 
+  Edit2, 
+  Save, 
+  X, 
+  Trash2,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  FileText,
+  DollarSign,
+  Camera
+} from "lucide-react"
+import TeethImageUpload from "@/components/teeth-image-upload"
+
+interface Patient {
+  id: number
+  name: string
+  email: string
+  phone: string
+  lastVisit: string
+  status: "active" | "inactive"
+  address: string
+  dateOfBirth: string
+  age: number
+  gender: string
+  medicalHistory: string[]
+  allergies: string[]
+  upcomingAppointments: Array<{
+    date: string
+    time: string
+    type: string
+    doctor: string
+  }>
+  pastAppointments: number
+  totalBilled: number
+  balance: number
+  notes: string
+}
 
 export default function OwnerPatients() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive" | "new">("all")
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [editingRow, setEditingRow] = useState<number | null>(null)
+  const [editedData, setEditedData] = useState<Partial<Patient>>({})
+  const [showImageUpload, setShowImageUpload] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
 
-  const patients = [
+  const [patients, setPatients] = useState<Patient[]>([
     {
       id: 1,
       name: "John Doe",
@@ -15,6 +65,20 @@ export default function OwnerPatients() {
       phone: "+63 912 345 6789",
       lastVisit: "2025-01-10",
       status: "active",
+      address: "123 Main St, Manila, Philippines",
+      dateOfBirth: "1990-05-15",
+      age: 34,
+      gender: "Male",
+      medicalHistory: ["Diabetes Type 2", "High Blood Pressure"],
+      allergies: ["Penicillin", "Latex"],
+      upcomingAppointments: [
+        { date: "2025-01-20", time: "10:00 AM", type: "Dental Cleaning", doctor: "Dr. Smith" },
+        { date: "2025-02-05", time: "2:00 PM", type: "Check-up", doctor: "Dr. Johnson" },
+      ],
+      pastAppointments: 12,
+      totalBilled: 45000,
+      balance: 5000,
+      notes: "Patient prefers morning appointments. Sensitive to cold.",
     },
     {
       id: 2,
@@ -23,8 +87,91 @@ export default function OwnerPatients() {
       phone: "+63 923 456 7890",
       lastVisit: "2025-01-08",
       status: "active",
+      address: "456 Oak Ave, Quezon City, Philippines",
+      dateOfBirth: "1985-09-22",
+      age: 39,
+      gender: "Female",
+      medicalHistory: ["None"],
+      allergies: ["None"],
+      upcomingAppointments: [
+        { date: "2025-01-25", time: "3:00 PM", type: "Root Canal", doctor: "Dr. Brown" },
+      ],
+      pastAppointments: 8,
+      totalBilled: 32000,
+      balance: 0,
+      notes: "Regular patient, always on time.",
     },
-  ]
+    {
+      id: 3,
+      name: "Mike Johnson",
+      email: "mike.j@email.com",
+      phone: "+63 934 567 8901",
+      lastVisit: "2024-11-20",
+      status: "inactive",
+      address: "789 Pine Rd, Makati, Philippines",
+      dateOfBirth: "1978-03-10",
+      age: 46,
+      gender: "Male",
+      medicalHistory: ["Asthma"],
+      allergies: ["Aspirin"],
+      upcomingAppointments: [],
+      pastAppointments: 15,
+      totalBilled: 78000,
+      balance: 12000,
+      notes: "Needs to schedule follow-up appointment.",
+    },
+  ])
+
+  const filteredPatients = patients.filter((patient) => {
+    const matchesSearch =
+      patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      patient.email.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "active" && patient.status === "active") ||
+      (activeTab === "inactive" && patient.status === "inactive") ||
+      (activeTab === "new" && new Date(patient.lastVisit).getMonth() === new Date().getMonth())
+
+    return matchesSearch && matchesTab
+  })
+
+  const handleRowClick = (patientId: number) => {
+    if (editingRow === patientId) return
+    setExpandedRow(expandedRow === patientId ? null : patientId)
+  }
+
+  const handleEdit = (patient: Patient, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingRow(patient.id)
+    setEditedData({ ...patient })
+    setExpandedRow(patient.id)
+  }
+
+  const handleSave = (patientId: number) => {
+    setPatients(patients.map((p) => (p.id === patientId ? { ...p, ...editedData } as Patient : p)))
+    setEditingRow(null)
+    setEditedData({})
+  }
+
+  const handleCancel = () => {
+    setEditingRow(null)
+    setEditedData({})
+  }
+
+  const handleDelete = (patientId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm("Are you sure you want to delete this patient?")) {
+      setPatients(patients.filter((p) => p.id !== patientId))
+      setExpandedRow(null)
+    }
+  }
+
+  const handleUploadImage = (patient: Patient, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedPatient(patient)
+    setShowImageUpload(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -33,19 +180,23 @@ export default function OwnerPatients() {
           <h1 className="text-3xl font-serif font-bold text-[var(--color-primary)] mb-2">Patients</h1>
           <p className="text-[var(--color-text-muted)]">Manage patient records and information</p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
+        >
           <Plus className="w-5 h-5" />
           Add Patient
         </button>
       </div>
 
+      {/* Search and Filters */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-text-muted)]" />
             <input
               type="text"
-              placeholder="Search patients..."
+              placeholder="Search patients by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
@@ -75,6 +226,7 @@ export default function OwnerPatients() {
         </div>
       </div>
 
+      {/* Patients Table */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -89,34 +241,412 @@ export default function OwnerPatients() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {patients.map((patient) => (
-                <tr key={patient.id} className="hover:bg-[var(--color-background)] transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-[var(--color-text)]">{patient.name}</p>
-                  </td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{patient.email}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{patient.phone}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{patient.lastVisit}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        patient.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {patient.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors">
-                      <Eye className="w-5 h-5 text-[var(--color-primary)]" />
-                    </button>
-                  </td>
-                </tr>
+              {filteredPatients.map((patient) => (
+                <Fragment key={patient.id}>
+                  {/* Main Row - Clickable */}
+                  <tr
+                    onClick={() => handleRowClick(patient.id)}
+                    className="hover:bg-[var(--color-background)] transition-all duration-200 cursor-pointer"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {expandedRow === patient.id ? (
+                          <ChevronUp className="w-4 h-4 text-[var(--color-primary)]" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)]" />
+                        )}
+                        <p className="font-medium text-[var(--color-text)]">{patient.name}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{patient.email}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{patient.phone}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{patient.lastVisit}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          patient.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {patient.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRowClick(patient.id)
+                          }}
+                          className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4 text-[var(--color-primary)]" />
+                        </button>
+                        <button
+                          onClick={(e) => handleEdit(patient, e)}
+                          className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4 text-blue-600" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(patient.id, e)}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Expanded Row */}
+                  {expandedRow === patient.id && (
+                    <tr>
+                      <td colSpan={6} className="bg-gradient-to-br from-gray-50 to-blue-50">
+                        <div
+                          className="px-6 py-6 animate-in slide-in-from-top-2 duration-300"
+                        >
+                          {editingRow === patient.id ? (
+                            // Edit Mode
+                            <div className="space-y-6">
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-[var(--color-primary)]">
+                                  Edit Patient Information
+                                </h3>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleSave(patient.id)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
+                                  >
+                                    <Save className="w-4 h-4" />
+                                    Save Changes
+                                  </button>
+                                  <button
+                                    onClick={handleCancel}
+                                    className="flex items-center gap-2 px-4 py-2 border border-[var(--color-border)] rounded-lg hover:bg-white transition-colors"
+                                  >
+                                    <X className="w-4 h-4" />
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium mb-1.5">Full Name</label>
+                                  <input
+                                    type="text"
+                                    value={editedData.name || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, name: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1.5">Email</label>
+                                  <input
+                                    type="email"
+                                    value={editedData.email || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1.5">Phone</label>
+                                  <input
+                                    type="tel"
+                                    value={editedData.phone || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1.5">Address</label>
+                                  <input
+                                    type="text"
+                                    value={editedData.address || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, address: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1.5">Date of Birth</label>
+                                  <input
+                                    type="date"
+                                    value={editedData.dateOfBirth || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, dateOfBirth: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium mb-1.5">Gender</label>
+                                  <select
+                                    value={editedData.gender || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, gender: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  >
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                  </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm font-medium mb-1.5">Notes</label>
+                                  <textarea
+                                    value={editedData.notes || ""}
+                                    onChange={(e) => setEditedData({ ...editedData, notes: e.target.value })}
+                                    rows={3}
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // View Mode
+                            <div className="space-y-6">
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-[var(--color-primary)]">
+                                  Patient Details
+                                </h3>
+                                <button
+                                  onClick={(e) => handleUploadImage(patient, e)}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                  <Camera className="w-4 h-4" />
+                                  Upload Teeth Image
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Personal Information Card */}
+                                <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
+                                  <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
+                                    <User className="w-5 h-5" />
+                                    Personal Information
+                                  </h4>
+                                  <div className="space-y-3 text-sm">
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-0.5">Full Name</p>
+                                      <p className="font-medium">{patient.name}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-0.5">Age / Gender</p>
+                                      <p className="font-medium">{patient.age} years / {patient.gender}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-0.5">Date of Birth</p>
+                                      <p className="font-medium">{patient.dateOfBirth}</p>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <Mail className="w-4 h-4 text-[var(--color-text-muted)] mt-0.5" />
+                                      <div>
+                                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Email</p>
+                                        <p className="font-medium">{patient.email}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <Phone className="w-4 h-4 text-[var(--color-text-muted)] mt-0.5" />
+                                      <div>
+                                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Phone</p>
+                                        <p className="font-medium">{patient.phone}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <MapPin className="w-4 h-4 text-[var(--color-text-muted)] mt-0.5" />
+                                      <div>
+                                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Address</p>
+                                        <p className="font-medium">{patient.address}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Medical History Card */}
+                                <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
+                                  <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
+                                    <FileText className="w-5 h-5" />
+                                    Medical Information
+                                  </h4>
+                                  <div className="space-y-4 text-sm">
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-2 font-medium">Medical History</p>
+                                      <ul className="space-y-1">
+                                        {patient.medicalHistory.map((item, idx) => (
+                                          <li key={idx} className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-2 font-medium">Allergies</p>
+                                      <ul className="space-y-1">
+                                        {patient.allergies.map((item, idx) => (
+                                          <li key={idx} className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div className="pt-2 border-t border-[var(--color-border)]">
+                                      <p className="text-[var(--color-text-muted)] mb-1 font-medium">Notes</p>
+                                      <p className="text-sm">{patient.notes}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Appointments & Billing Card */}
+                                <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
+                                  <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
+                                    <Calendar className="w-5 h-5" />
+                                    Appointments & Billing
+                                  </h4>
+                                  <div className="space-y-4 text-sm">
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-2 font-medium">Upcoming Appointments</p>
+                                      {patient.upcomingAppointments.length > 0 ? (
+                                        <div className="space-y-2">
+                                          {patient.upcomingAppointments.map((apt, idx) => (
+                                            <div key={idx} className="bg-blue-50 rounded-lg p-3">
+                                              <p className="font-medium text-blue-900">{apt.type}</p>
+                                              <p className="text-xs text-blue-700 mt-1">
+                                                {apt.date} at {apt.time}
+                                              </p>
+                                              <p className="text-xs text-blue-600 mt-0.5">with {apt.doctor}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-[var(--color-text-muted)] italic">No upcoming appointments</p>
+                                      )}
+                                    </div>
+
+                                    <div className="pt-3 border-t border-[var(--color-border)]">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <DollarSign className="w-4 h-4 text-[var(--color-text-muted)]" />
+                                        <p className="font-medium">Financial Summary</p>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <div className="flex justify-between">
+                                          <span className="text-[var(--color-text-muted)]">Past Visits:</span>
+                                          <span className="font-semibold">{patient.pastAppointments}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-[var(--color-text-muted)]">Total Billed:</span>
+                                          <span className="font-semibold">₱{patient.totalBilled.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-[var(--color-text-muted)]">Balance:</span>
+                                          <span className={`font-semibold ${patient.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            ₱{patient.balance.toLocaleString()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Add Patient Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-[var(--color-border)] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-serif font-bold text-[var(--color-primary)]">Add New Patient</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    required
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
+                >
+                  Add Patient
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Teeth Image Upload Modal */}
+      {showImageUpload && selectedPatient && (
+        <TeethImageUpload
+          patientId={selectedPatient.id}
+          patientName={selectedPatient.name}
+          onClose={() => {
+            setShowImageUpload(false)
+            setSelectedPatient(null)
+          }}
+          onSuccess={() => {
+            // Refresh patient data or show success message
+            setShowImageUpload(false)
+            setSelectedPatient(null)
+          }}
+        />
+      )}
     </div>
   )
 }

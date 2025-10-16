@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Fragment } from "react"
 import { 
   Plus, 
   Eye, 
@@ -201,10 +201,9 @@ export default function StaffAppointments() {
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
               {appointments.map((apt) => (
-                <>
+                <Fragment key={apt.id}>
                   {/* Main Row - Clickable */}
                   <tr
-                    key={apt.id}
                     onClick={() => handleRowClick(apt.id)}
                     className="hover:bg-[var(--color-background)] transition-all duration-200 cursor-pointer"
                   >
@@ -539,7 +538,7 @@ export default function StaffAppointments() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

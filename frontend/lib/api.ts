@@ -173,4 +173,70 @@ export const api = {
     })
     return response.json()
   },
+
+  // Teeth images endpoints
+  uploadTeethImage: async (patientId: number, imageFile: File, notes: string, token: string) => {
+    const formData = new FormData()
+    formData.append('patient', patientId.toString())
+    formData.append('image', imageFile)
+    formData.append('notes', notes)
+
+    const response = await fetch(`${API_BASE_URL}/teeth-images/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to upload teeth image')
+    }
+    return response.json()
+  },
+
+  getLatestTeethImage: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/teeth-images/latest/?patient_id=${patientId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) return null
+    return response.json()
+  },
+
+  getPatientTeethImages: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/teeth-images/by_patient/?patient_id=${patientId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) return []
+    return response.json()
+  },
+
+  // Billing status endpoints
+  updateBillingStatus: async (billingId: number, status: 'pending' | 'paid' | 'cancelled', token: string) => {
+    const response = await fetch(`${API_BASE_URL}/billing/${billingId}/update_status/`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to update billing status')
+    }
+    return response.json()
+  },
+
+  getBillingByStatus: async (status: string, token: string) => {
+    const url = status === 'all' 
+      ? `${API_BASE_URL}/billing/`
+      : `${API_BASE_URL}/billing/?status=${status}`
+    
+    const response = await fetch(url, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) return []
+    return response.json()
+  },
 }

@@ -171,9 +171,36 @@ class BillingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = Billing.objects.all()
+        
+        # Filter by patient if user is a patient
         if user.user_type == 'patient':
-            return Billing.objects.filter(patient=user)
-        return Billing.objects.all()
+            queryset = queryset.filter(patient=user)
+        
+        # Filter by status if provided
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter and status_filter in ['pending', 'paid', 'cancelled']:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset
+
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        """Update billing status"""
+        billing = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status not in ['pending', 'paid', 'cancelled']:
+            return Response(
+                {'error': 'Invalid status. Must be pending, paid, or cancelled.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        billing.status = new_status
+        billing.save()
+        
+        serializer = self.get_serializer(billing)
+        return Response(serializer.data)
 
 
 class ClinicLocationViewSet(viewsets.ModelViewSet):
@@ -191,6 +218,82 @@ class TreatmentPlanViewSet(viewsets.ModelViewSet):
         if user.user_type == 'patient':
             return TreatmentPlan.objects.filter(patient=user)
         return TreatmentPlan.objects.all()
+
+
+class TeethImageViewSet(viewsets.ModelViewSet):
+    queryset = TeethImage.objects.all()
+    serializer_class = TeethImageSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = TeethImage.objects.all()
+        
+        # Filter by patient if user is a patient
+        if user.user_type == 'patient':
+            queryset = queryset.filter(patient=user)
+        
+        # Filter by patient_id if provided (for staff/owner viewing specific patient)
+        patient_id = self.request.query_params.get('patient_id', None)
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+        
+        return queryset
+
+    def perform_create(self, serializer):
+        """Set uploaded_by to current user"""
+        serializer.save(uploaded_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def latest(self, request):
+        """Get latest teeth image for a patient"""
+        patient_id = request.query_params.get('patient_id')
+        
+        if not patient_id:
+            if request.user.user_type == 'patient':
+                patient_id = request.user.id
+            else:
+                return Response(
+                    {'error': 'patient_id parameter is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        try:
+            latest_image = TeethImage.objects.filter(
+                patient_id=patient_id,
+                is_latest=True
+            ).first()
+            
+            if latest_image:
+                serializer = self.get_serializer(latest_image)
+                return Response(serializer.data)
+            else:
+                return Response(
+                    {'message': 'No teeth images found for this patient'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'])
+    def by_patient(self, request):
+        """Get all teeth images for a specific patient"""
+        patient_id = request.query_params.get('patient_id')
+        
+        if not patient_id:
+            if request.user.user_type == 'patient':
+                patient_id = request.user.id
+            else:
+                return Response(
+                    {'error': 'patient_id parameter is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        images = TeethImage.objects.filter(patient_id=patient_id)
+        serializer = self.get_serializer(images, many=True)
+        return Response(serializer.data)
 
 
 @api_view(['GET'])

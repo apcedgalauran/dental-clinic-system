@@ -132,17 +132,29 @@ class InventoryItem(models.Model):
 
 
 class Billing(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('cancelled', 'Cancelled'),
+    )
     patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='billings')
     appointment = models.ForeignKey(Appointment, on_delete=models.SET_NULL, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField()
     soa_file = models.FileField(upload_to='billing/', null=True, blank=True)
-    paid = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    paid = models.BooleanField(default=False)  # Keep for backward compatibility
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_billings')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        # Auto-sync paid field with status
+        self.paid = (self.status == 'paid')
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.patient.get_full_name()} - PHP {self.amount}"
@@ -175,3 +187,27 @@ class TreatmentPlan(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.patient.get_full_name()}"
+
+
+class TeethImage(models.Model):
+    """Model for storing patient teeth images"""
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='teeth_images')
+    image = models.ImageField(upload_to='teeth_images/')
+    notes = models.TextField(blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='uploaded_teeth_images')
+    is_latest = models.BooleanField(default=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Teeth Image'
+        verbose_name_plural = 'Teeth Images'
+
+    def save(self, *args, **kwargs):
+        # When saving a new image as latest, mark all other patient images as not latest
+        if self.is_latest:
+            TeethImage.objects.filter(patient=self.patient, is_latest=True).update(is_latest=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Teeth Image - {self.patient.get_full_name()} - {self.uploaded_at.date()}"

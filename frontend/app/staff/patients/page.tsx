@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Fragment } from "react"
 import { 
   Search, 
   Plus, 
@@ -17,8 +17,10 @@ import {
   MapPin,
   Calendar,
   FileText,
-  DollarSign
+  DollarSign,
+  Camera
 } from "lucide-react"
+import TeethImageUpload from "@/components/teeth-image-upload"
 
 interface Patient {
   id: number
@@ -52,6 +54,8 @@ export default function StaffPatients() {
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [editingRow, setEditingRow] = useState<number | null>(null)
   const [editedData, setEditedData] = useState<Partial<Patient>>({})
+  const [showImageUpload, setShowImageUpload] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
 
   const [patients, setPatients] = useState<Patient[]>([
     {
@@ -163,6 +167,12 @@ export default function StaffPatients() {
     }
   }
 
+  const handleUploadImage = (patient: Patient, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedPatient(patient)
+    setShowImageUpload(true)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -232,10 +242,9 @@ export default function StaffPatients() {
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
               {filteredPatients.map((patient) => (
-                <>
+                <Fragment key={patient.id}>
                   {/* Main Row - Clickable */}
                   <tr
-                    key={patient.id}
                     onClick={() => handleRowClick(patient.id)}
                     className="hover:bg-[var(--color-background)] transition-all duration-200 cursor-pointer"
                   >
@@ -395,9 +404,18 @@ export default function StaffPatients() {
                           ) : (
                             // View Mode
                             <div className="space-y-6">
-                              <h3 className="text-xl font-bold text-[var(--color-primary)]">
-                                Patient Details
-                              </h3>
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-[var(--color-primary)]">
+                                  Patient Details
+                                </h3>
+                                <button
+                                  onClick={(e) => handleUploadImage(patient, e)}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                  <Camera className="w-4 h-4" />
+                                  Upload Teeth Image
+                                </button>
+                              </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {/* Personal Information Card */}
@@ -536,7 +554,7 @@ export default function StaffPatients() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -611,6 +629,23 @@ export default function StaffPatients() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Teeth Image Upload Modal */}
+      {showImageUpload && selectedPatient && (
+        <TeethImageUpload
+          patientId={selectedPatient.id}
+          patientName={selectedPatient.name}
+          onClose={() => {
+            setShowImageUpload(false)
+            setSelectedPatient(null)
+          }}
+          onSuccess={() => {
+            // Refresh patient data or show success message
+            setShowImageUpload(false)
+            setSelectedPatient(null)
+          }}
+        />
       )}
     </div>
   )

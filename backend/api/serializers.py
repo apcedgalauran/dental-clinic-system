@@ -82,3 +82,23 @@ class TreatmentPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = TreatmentPlan
         fields = '__all__'
+
+
+class TeethImageSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TeethImage
+        fields = ['id', 'patient', 'patient_name', 'image', 'image_url', 'notes', 
+                  'uploaded_by', 'uploaded_by_name', 'is_latest', 'uploaded_at']
+        read_only_fields = ['uploaded_at']
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None

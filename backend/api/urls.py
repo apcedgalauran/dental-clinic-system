@@ -13,6 +13,7 @@ router.register('inventory', InventoryItemViewSet)
 router.register('billing', BillingViewSet)
 router.register('locations', ClinicLocationViewSet)
 router.register('treatment-plans', TreatmentPlanViewSet)
+router.register('teeth-images', TeethImageViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

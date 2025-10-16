@@ -1,16 +1,53 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Upload } from "lucide-react"
+import { Plus, Upload, Edit2 } from "lucide-react"
+
+interface Billing {
+  id: number
+  patient: string
+  description: string
+  amount: number
+  date: string
+  status: "pending" | "paid" | "cancelled"
+}
 
 export default function StaffBilling() {
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingBilling, setEditingBilling] = useState<Billing | null>(null)
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "paid" | "cancelled">("all")
+  const [newBillingStatus, setNewBillingStatus] = useState<"pending" | "paid" | "cancelled">("pending")
 
-  const billings = [
-    { id: 1, patient: "John Doe", description: "Root Canal Treatment", amount: 15000, date: "2025-01-15", paid: false },
-    { id: 2, patient: "Jane Smith", description: "Teeth Whitening", amount: 8000, date: "2025-01-10", paid: true },
-    { id: 3, patient: "Mike Johnson", description: "Dental Cleaning", amount: 2500, date: "2025-01-08", paid: true },
-  ]
+  const [billings, setBillings] = useState<Billing[]>([
+    { id: 1, patient: "John Doe", description: "Root Canal Treatment", amount: 15000, date: "2025-01-15", status: "pending" },
+    { id: 2, patient: "Jane Smith", description: "Teeth Whitening", amount: 8000, date: "2025-01-10", status: "paid" },
+    { id: 3, patient: "Mike Johnson", description: "Dental Cleaning", amount: 2500, date: "2025-01-08", status: "paid" },
+  ])
+
+  const filteredBillings = statusFilter === "all" 
+    ? billings 
+    : billings.filter(b => b.status === statusFilter)
+
+  // Calculate total pending amount
+  const pendingTotal = billings
+    .filter(b => b.status === "pending")
+    .reduce((sum, b) => sum + b.amount, 0)
+
+  const handleEdit = (billing: Billing) => {
+    setEditingBilling(billing)
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = () => {
+    if (editingBilling) {
+      setBillings(billings.map(b => 
+        b.id === editingBilling.id ? editingBilling : b
+      ))
+      setShowEditModal(false)
+      setEditingBilling(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -28,6 +65,37 @@ export default function StaffBilling() {
         </button>
       </div>
 
+      {/* Status Filter Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--color-border)]">
+        <div className="flex gap-2">
+          {[
+            { id: "all", label: "All" },
+            { id: "pending", label: "Pending" },
+            { id: "paid", label: "Paid" },
+            { id: "cancelled", label: "Cancelled" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStatusFilter(tab.id as any)}
+              className={`px-4 py-2 font-medium transition-colors ${
+                statusFilter === tab.id
+                  ? "text-[var(--color-primary)] border-b-2 border-[var(--color-primary)]"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        {/* Pending Total */}
+        <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm text-amber-700 font-medium">
+            Total Pending: <span className="text-lg font-bold">₱{pendingTotal.toLocaleString()}</span>
+          </p>
+        </div>
+      </div>
+
       {/* Billing Table */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
         <div className="overflow-x-auto">
@@ -39,23 +107,35 @@ export default function StaffBilling() {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Amount (PHP)</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Date</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Status</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {billings.map((billing) => (
+              {filteredBillings.map((billing) => (
                 <tr key={billing.id} className="hover:bg-[var(--color-background)] transition-colors">
                   <td className="px-6 py-4">
                     <p className="font-medium text-[var(--color-text)]">{billing.patient}</p>
                   </td>
                   <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.description}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.amount.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-[var(--color-text-muted)]">₱{billing.amount.toLocaleString()}</td>
                   <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.date}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${billing.paid ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}
-                    >
-                      {billing.paid ? "Paid" : "Pending"}
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      billing.status === 'paid' ? 'bg-green-100 text-green-700' :
+                      billing.status === 'cancelled' ? 'bg-gray-100 text-gray-700' :
+                      'bg-amber-100 text-amber-700'
+                    }`}>
+                      {billing.status.charAt(0).toUpperCase() + billing.status.slice(1)}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleEdit(billing)}
+                      className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4 text-blue-600" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -105,6 +185,19 @@ export default function StaffBilling() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Status</label>
+                <select
+                  value={newBillingStatus}
+                  onChange={(e) => setNewBillingStatus(e.target.value as "pending" | "paid" | "cancelled")}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
                   Upload SOA File (Image or PDF)
                 </label>
@@ -128,6 +221,100 @@ export default function StaffBilling() {
                   className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
                 >
                   Add SOA
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Billing Modal */}
+      {showEditModal && editingBilling && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+            <div className="border-b border-[var(--color-border)] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-serif font-bold text-[var(--color-primary)]">Edit Billing</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditingBilling(null)
+                }}
+                className="p-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="p-6 space-y-4" onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Patient</label>
+                <input
+                  type="text"
+                  value={editingBilling.patient}
+                  onChange={(e) => setEditingBilling({ ...editingBilling, patient: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Description</label>
+                <textarea
+                  rows={3}
+                  value={editingBilling.description}
+                  onChange={(e) => setEditingBilling({ ...editingBilling, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Amount (PHP)</label>
+                <input
+                  type="number"
+                  value={editingBilling.amount}
+                  onChange={(e) => setEditingBilling({ ...editingBilling, amount: Number(e.target.value) })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Date</label>
+                <input
+                  type="date"
+                  value={editingBilling.date}
+                  onChange={(e) => setEditingBilling({ ...editingBilling, date: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Status</label>
+                <select
+                  value={editingBilling.status}
+                  onChange={(e) => setEditingBilling({ ...editingBilling, status: e.target.value as "pending" | "paid" | "cancelled" })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingBilling(null)
+                  }}
+                  className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

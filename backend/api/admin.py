@@ -63,8 +63,8 @@ class InventoryItemAdmin(admin.ModelAdmin):
 
 @admin.register(Billing)
 class BillingAdmin(admin.ModelAdmin):
-    list_display = ('patient', 'amount', 'paid', 'created_at')
-    list_filter = ('paid', 'created_at')
+    list_display = ('patient', 'amount', 'status', 'paid', 'created_at')
+    list_filter = ('status', 'paid', 'created_at')
     search_fields = ('patient__username', 'description')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
@@ -80,6 +80,15 @@ class TreatmentPlanAdmin(admin.ModelAdmin):
     list_filter = ('status', 'start_date')
     search_fields = ('patient__username', 'title', 'description')
     ordering = ('-start_date',)
+
+@admin.register(TeethImage)
+class TeethImageAdmin(admin.ModelAdmin):
+    list_display = ('patient', 'uploaded_by', 'is_latest', 'uploaded_at')
+    list_filter = ('is_latest', 'uploaded_at', 'uploaded_by')
+    search_fields = ('patient__username', 'uploaded_by__username', 'notes')
+    ordering = ('-uploaded_at',)
+    readonly_fields = ('uploaded_at',)
+    date_hierarchy = 'uploaded_at'
 
 admin.site.site_header = "Dental Clinic Administration"
 admin.site.site_title = "Dental Clinic Admin"

@@ -6,11 +6,11 @@ import { Camera } from "lucide-react"
 export default function OwnerProfile() {
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState({
-    firstName: "Owner",
-    lastName: "Admin",
-    email: "owner@dentalclinic.com",
+    firstName: "Sarah",
+    lastName: "Johnson",
+    email: "sarah.johnson@dentalclinic.com",
     phone: "+63 912 345 6789",
-    address: "123 Business District, Makati City",
+    address: "123 Medical Plaza, Makati City",
   })
 
   return (
@@ -30,18 +30,18 @@ export default function OwnerProfile() {
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
         <div className="flex items-center gap-6 mb-8">
           <div className="relative">
-            <div className="w-24 h-24 bg-[var(--color-accent)] rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              OA
+            <div className="w-24 h-24 bg-[var(--color-primary)] rounded-full flex items-center justify-center text-white text-3xl font-bold">
+              SJ
             </div>
             {isEditing && (
-              <button className="absolute bottom-0 right-0 w-8 h-8 bg-[var(--color-primary)] rounded-full flex items-center justify-center text-white hover:bg-[var(--color-primary-dark)] transition-colors">
+              <button className="absolute bottom-0 right-0 w-8 h-8 bg-[var(--color-accent)] rounded-full flex items-center justify-center text-white hover:bg-[var(--color-accent-dark)] transition-colors">
                 <Camera className="w-4 h-4" />
               </button>
             )}
           </div>
           <div>
-            <h2 className="text-2xl font-semibold text-[var(--color-text)]">Owner Admin</h2>
-            <p className="text-[var(--color-text-muted)]">Owner</p>
+            <h2 className="text-2xl font-semibold text-[var(--color-text)]">Dr. Sarah Johnson</h2>
+            <p className="text-[var(--color-text-muted)]">Dentist</p>
           </div>
         </div>
 
