@@ -33,10 +33,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
-            <span className="text-[var(--color-accent)] text-xl font-bold">D</span>
-          </div>
-          <span className="font-semibold text-[var(--color-primary)]">Dental Clinic</span>
+          <img src="/logo.png" alt="Dorotheo Dental Clinic" className="h-10 w-auto object-contain" />
         </Link>
         <div className="flex items-center gap-2">
           {/* Mobile Profile Dropdown */}
@@ -105,12 +102,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         } lg:translate-x-0`}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-[var(--color-border)]">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
-                <span className="text-[var(--color-accent)] text-2xl font-bold">D</span>
-              </div>
-              <span className="text-xl font-semibold text-[var(--color-primary)]">Dental Clinic</span>
+          <div className="p-6 bg-[var(--color-primary)]">
+            <Link href="/" className="flex items-center justify-center">
+              <img src="/logo.png" alt="Dorotheo Dental Clinic" className="h-14 w-auto object-contain" />
             </Link>
           </div>
 

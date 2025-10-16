@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment } from "react"
+import { useState, Fragment, useEffect } from "react"
 import { 
   Search, 
   Plus, 
@@ -21,6 +21,8 @@ import {
   Camera
 } from "lucide-react"
 import TeethImageUpload from "@/components/teeth-image-upload"
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
 
 interface Patient {
   id: number
@@ -48,6 +50,7 @@ interface Patient {
 }
 
 export default function StaffPatients() {
+  const { token } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive" | "new">("all")
   const [showAddModal, setShowAddModal] = useState(false)
@@ -56,8 +59,52 @@ export default function StaffPatients() {
   const [editedData, setEditedData] = useState<Partial<Patient>>({})
   const [showImageUpload, setShowImageUpload] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const [patients, setPatients] = useState<Patient[]>([
+  // Fetch real patients from API
+  useEffect(() => {
+    const fetchPatients = async () => {
+      if (!token) return
+      
+      try {
+        setIsLoading(true)
+        const response = await api.getPatients(token)
+        console.log("Fetched patients:", response)
+        
+        // Transform API response to Patient interface
+        const transformedPatients = response.map((user: any) => ({
+          id: user.id,
+          name: `${user.first_name} ${user.last_name}`,
+          email: user.email,
+          phone: user.phone || "N/A",
+          lastVisit: user.created_at?.split('T')[0] || "N/A",
+          status: "active" as const,
+          address: user.address || "N/A",
+          dateOfBirth: user.birthday || "N/A",
+          age: user.age || 0,
+          gender: user.gender || "Not specified",
+          medicalHistory: [],
+          allergies: [],
+          upcomingAppointments: [],
+          pastAppointments: 0,
+          totalBilled: 0,
+          balance: 0,
+          notes: "",
+        }))
+        
+        setPatients(transformedPatients)
+      } catch (error) {
+        console.error("Error fetching patients:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPatients()
+  }, [token])
+
+  const mockPatients: Patient[] = [
     {
       id: 1,
       name: "John Doe",
@@ -120,12 +167,16 @@ export default function StaffPatients() {
       balance: 12000,
       notes: "Needs to schedule follow-up appointment.",
     },
-  ])
+  ]
 
-  const filteredPatients = patients.filter((patient) => {
+  // Combine real patients with mock data for display
+  const allPatients = [...patients, ...mockPatients]
+
+  const filteredPatients = allPatients.filter((patient) => {
     const matchesSearch =
       patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.toLowerCase())
+      patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      patient.phone.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesTab =
       activeTab === "all" ||
@@ -571,7 +622,7 @@ export default function StaffPatients() {
                 onClick={() => setShowAddModal(false)}
                 className="p-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
               >
-                ×
+                <X className="w-5 h-5" />
               </button>
             </div>
 

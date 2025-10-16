@@ -125,7 +125,8 @@ export default function OwnerPatients() {
   const filteredPatients = patients.filter((patient) => {
     const matchesSearch =
       patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.toLowerCase())
+      patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      patient.phone.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesTab =
       activeTab === "all" ||

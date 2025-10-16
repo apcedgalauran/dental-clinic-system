@@ -1,23 +1,97 @@
 "use client"
 
-import { Calendar, Users, Clock, AlertTriangle } from "lucide-react"
+import { Calendar as CalendarIcon, Users, Clock, AlertTriangle, ChevronLeft, ChevronRight, Cake } from "lucide-react"
 import { useState } from "react"
 
 export default function OwnerDashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(new Date())
 
-  const appointments = [
-    { id: 1, time: "09:00 AM", patient: "John Doe", treatment: "Teeth Cleaning", status: "confirmed" },
-    { id: 2, time: "10:30 AM", patient: "Jane Smith", treatment: "Root Canal", status: "confirmed" },
-    { id: 3, time: "02:00 PM", patient: "Mike Johnson", treatment: "Dental Check-up", status: "pending" },
-    { id: 4, time: "03:30 PM", patient: "Sarah Williams", treatment: "Tooth Extraction", status: "confirmed" },
+  // Sample appointment data with dates
+  const allAppointments = [
+    { id: 1, date: "2025-10-16", time: "09:00 AM", patient: "John Doe", treatment: "Teeth Cleaning", status: "confirmed" },
+    { id: 2, date: "2025-10-16", time: "10:30 AM", patient: "Jane Smith", treatment: "Root Canal", status: "confirmed" },
+    { id: 3, date: "2025-10-16", time: "02:00 PM", patient: "Mike Johnson", treatment: "Dental Check-up", status: "pending" },
+    { id: 4, date: "2025-10-16", time: "03:30 PM", patient: "Sarah Williams", treatment: "Tooth Extraction", status: "confirmed" },
+    { id: 5, date: "2025-10-20", time: "10:00 AM", patient: "Robert Brown", treatment: "Teeth Whitening", status: "confirmed" },
+    { id: 6, date: "2025-10-22", time: "11:00 AM", patient: "Emily Davis", treatment: "Dental Implant", status: "pending" },
+    { id: 7, date: "2025-10-10", time: "09:30 AM", patient: "Michael Wilson", treatment: "Cleaning", status: "completed" },
   ]
+
+  // Sample birthday data
+  const birthdays = [
+    { name: "Dr. Sarah Johnson", date: "2025-10-18", role: "Staff" },
+    { name: "Dr. Michael Chen", date: "2025-10-25", role: "Staff" },
+    { name: "Clinic Owner", date: "2025-10-30", role: "Owner" },
+  ]
+
+  // Get appointments for today
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todayAppointments = allAppointments.filter(apt => apt.date === todayStr)
+
+  // Get appointments for selected date
+  const selectedDateStr = selectedDate.toISOString().split('T')[0]
+  const selectedDayAppointments = allAppointments.filter(apt => apt.date === selectedDateStr)
+
+  // Calendar helper functions
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  }
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
+  }
+
+  const previousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))
+  }
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))
+  }
+
+  const hasAppointment = (day: number) => {
+    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    return allAppointments.some(apt => apt.date === dateStr)
+  }
+
+  const hasBirthday = (day: number) => {
+    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    return birthdays.some(bd => bd.date === dateStr)
+  }
+
+  const getBirthdaysForDate = (day: number) => {
+    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    return birthdays.filter(bd => bd.date === dateStr)
+  }
+
+  const isToday = (day: number) => {
+    const today = new Date()
+    return day === today.getDate() && 
+           currentMonth.getMonth() === today.getMonth() && 
+           currentMonth.getFullYear() === today.getFullYear()
+  }
+
+  const isSelectedDay = (day: number) => {
+    return day === selectedDate.getDate() && 
+           currentMonth.getMonth() === selectedDate.getMonth() && 
+           currentMonth.getFullYear() === selectedDate.getFullYear()
+  }
+
+  const selectDate = (day: number) => {
+    setSelectedDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))
+  }
+
+  const daysInMonth = getDaysInMonth(currentMonth)
+  const firstDay = getFirstDayOfMonth(currentMonth)
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-serif font-bold text-[var(--color-primary)] mb-2">Dashboard Overview</h1>
-        <p className="text-[var(--color-text-muted)]">Welcome back, Dr. Sarah Johnson</p>
+        <p className="text-[var(--color-text-muted)]">Welcome back, Clinic Owner</p>
       </div>
 
       {/* Stats Grid */}
@@ -25,10 +99,10 @@ export default function OwnerDashboard() {
         <div className="bg-white p-6 rounded-xl border border-[var(--color-border)]">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-blue-600" />
+              <CalendarIcon className="w-6 h-6 text-blue-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">12</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">{todayAppointments.length}</p>
           <p className="text-sm text-[var(--color-text-muted)]">Appointments Today</p>
         </div>
 
@@ -64,40 +138,150 @@ export default function OwnerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar */}
+        {/* Interactive Calendar */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-[var(--color-border)] p-6">
-          <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-6">Appointment Calendar</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-[var(--color-text)]">Today's Schedule</h3>
-              <p className="text-sm text-[var(--color-text-muted)]">{new Date().toLocaleDateString()}</p>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-[var(--color-primary)]">Appointment Calendar</h2>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={previousMonth}
+                className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="font-semibold text-[var(--color-text)] min-w-[180px] text-center">
+                {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+              </span>
+              <button 
+                onClick={nextMonth}
+                className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              {appointments.map((apt) => (
-                <div
-                  key={apt.id}
-                  className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-[var(--color-text)]">{apt.time}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-[var(--color-text)]">{apt.patient}</p>
-                      <p className="text-sm text-[var(--color-text-muted)]">{apt.treatment}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      apt.status === "confirmed" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {apt.status}
-                  </span>
+          {/* Calendar Grid */}
+          <div className="mb-4">
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {dayNames.map(day => (
+                <div key={day} className="text-center text-sm font-medium text-[var(--color-text-muted)] py-2">
+                  {day}
                 </div>
               ))}
             </div>
+            
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: firstDay }, (_, i) => (
+                <div key={`empty-${i}`} className="aspect-square" />
+              ))}
+              
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1
+                const hasApt = hasAppointment(day)
+                const hasBd = hasBirthday(day)
+                const birthdayList = getBirthdaysForDate(day)
+                
+                return (
+                  <button
+                    key={day}
+                    onClick={() => selectDate(day)}
+                    className={`aspect-square p-2 rounded-lg text-sm font-medium transition-all relative ${
+                      isSelectedDay(day)
+                        ? "bg-[#0f766e] text-white shadow-lg"
+                        : isToday(day)
+                        ? "bg-blue-100 text-blue-700 ring-2 ring-blue-500"
+                        : hasApt || hasBd
+                        ? "bg-green-50 text-[var(--color-text)] hover:bg-green-100"
+                        : "text-[var(--color-text)] hover:bg-[var(--color-background)]"
+                    }`}
+                    title={birthdayList.length > 0 ? `Birthday: ${birthdayList.map(b => b.name).join(', ')}` : ''}
+                  >
+                    {day}
+                    <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+                      {hasApt && <div className="w-1 h-1 bg-blue-500 rounded-full" />}
+                      {hasBd && <div className="w-1 h-1 bg-pink-500 rounded-full" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border)] pt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-100 ring-2 ring-blue-500 rounded" />
+              <span>Today</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded flex items-center justify-center">
+                <div className="w-1 h-1 bg-blue-500 rounded-full" />
+              </div>
+              <span>Has Appointments</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded flex items-center justify-center">
+                <div className="w-1 h-1 bg-pink-500 rounded-full" />
+              </div>
+              <span>Birthday</span>
+            </div>
+          </div>
+
+          {/* Selected Date Info */}
+          <div className="mt-6 border-t border-[var(--color-border)] pt-6">
+            <h3 className="font-semibold text-[var(--color-text)] mb-4">
+              {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </h3>
+            
+            {/* Birthdays for selected date */}
+            {getBirthdaysForDate(selectedDate.getDate()).length > 0 && (
+              <div className="mb-4 p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Cake className="w-4 h-4 text-pink-600" />
+                  <span className="font-medium text-pink-900">Birthdays Today</span>
+                </div>
+                {getBirthdaysForDate(selectedDate.getDate()).map((birthday, idx) => (
+                  <div key={idx} className="text-sm text-pink-800">
+                    🎉 {birthday.name} ({birthday.role})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedDayAppointments.length > 0 ? (
+              <div className="space-y-3">
+                {selectedDayAppointments.map((apt) => (
+                  <div
+                    key={apt.id}
+                    className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-[var(--color-text)]">{apt.time}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-[var(--color-text)]">{apt.patient}</p>
+                        <p className="text-sm text-[var(--color-text-muted)]">{apt.treatment}</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        apt.status === "confirmed" 
+                          ? "bg-green-100 text-green-700" 
+                          : apt.status === "completed"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {apt.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-[var(--color-text-muted)] py-8">No appointments for this date</p>
+            )}
           </div>
         </div>
 

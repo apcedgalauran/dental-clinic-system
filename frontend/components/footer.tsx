@@ -4,7 +4,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
-            <h3 className="text-xl font-semibold mb-4 text-[var(--color-accent)]">Dental Clinic</h3>
+            <h3 className="text-xl font-semibold mb-4 text-[var(--color-accent)]">Dorotheo Dental Clinic</h3>
             <p className="text-white/80 leading-relaxed">
               Providing quality dental care with compassion and excellence since 2010.
             </p>
@@ -47,7 +47,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-white/20 pt-8 text-center text-white/60">
-          <p>&copy; 2025 Dental Clinic. All rights reserved.</p>
+          <p>&copy; 2025 Dorotheo Dental Clinic. All rights reserved.</p>
         </div>
       </div>
     </footer>

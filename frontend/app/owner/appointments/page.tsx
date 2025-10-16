@@ -39,6 +39,7 @@ interface Appointment {
 }
 
 export default function OwnerAppointments() {
+  const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [editingRow, setEditingRow] = useState<number | null>(null)
@@ -156,6 +157,12 @@ export default function OwnerAppointments() {
     )
   }
 
+  const filteredAppointments = appointments.filter((apt) =>
+    apt.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.treatment.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.dentist.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -178,7 +185,9 @@ export default function OwnerAppointments() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-text-muted)]" />
           <input
             type="text"
-            placeholder="Search appointments..."
+            placeholder="Search by patient, treatment, or dentist..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
           />
         </div>
@@ -200,7 +209,7 @@ export default function OwnerAppointments() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {appointments.map((apt) => (
+              {filteredAppointments.map((apt) => (
                 <Fragment key={apt.id}>
                   {/* Main Row - Clickable */}
                   <tr

@@ -1,16 +1,24 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Upload, Edit2 } from "lucide-react"
+import { Plus, Upload, Edit2, Search } from "lucide-react"
 
 interface Billing {
   id: number
   patient: string
-  description: string
   amount: number
   date: string
   status: "pending" | "paid" | "cancelled"
 }
+
+// Mock patient data
+const mockPatients = [
+  { id: 1, name: "John Doe", email: "john@email.com" },
+  { id: 2, name: "Jane Smith", email: "jane@email.com" },
+  { id: 3, name: "Mike Johnson", email: "mike@email.com" },
+  { id: 4, name: "Sarah Williams", email: "sarah@email.com" },
+  { id: 5, name: "Robert Brown", email: "robert@email.com" },
+]
 
 export default function StaffBilling() {
   const [showAddModal, setShowAddModal] = useState(false)
@@ -18,16 +26,30 @@ export default function StaffBilling() {
   const [editingBilling, setEditingBilling] = useState<Billing | null>(null)
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "paid" | "cancelled">("all")
   const [newBillingStatus, setNewBillingStatus] = useState<"pending" | "paid" | "cancelled">("pending")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [patientSearch, setPatientSearch] = useState("")
+  const [selectedPatient, setSelectedPatient] = useState("")
 
   const [billings, setBillings] = useState<Billing[]>([
-    { id: 1, patient: "John Doe", description: "Root Canal Treatment", amount: 15000, date: "2025-01-15", status: "pending" },
-    { id: 2, patient: "Jane Smith", description: "Teeth Whitening", amount: 8000, date: "2025-01-10", status: "paid" },
-    { id: 3, patient: "Mike Johnson", description: "Dental Cleaning", amount: 2500, date: "2025-01-08", status: "paid" },
+    { id: 1, patient: "John Doe", amount: 15000, date: "2025-01-15", status: "pending" },
+    { id: 2, patient: "Jane Smith", amount: 8000, date: "2025-01-10", status: "paid" },
+    { id: 3, patient: "Mike Johnson", amount: 2500, date: "2025-01-08", status: "paid" },
   ])
 
   const filteredBillings = statusFilter === "all" 
     ? billings 
     : billings.filter(b => b.status === statusFilter)
+
+  // Filter by search query
+  const searchedBillings = filteredBillings.filter(b => 
+    b.patient.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Filter patients for search
+  const filteredPatients = mockPatients.filter(p =>
+    p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
+    p.email.toLowerCase().includes(patientSearch.toLowerCase())
+  )
 
   // Calculate total pending amount
   const pendingTotal = billings
@@ -96,6 +118,18 @@ export default function StaffBilling() {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--color-text-muted)] w-5 h-5" />
+        <input
+          type="text"
+          placeholder="Search by patient name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+        />
+      </div>
+
       {/* Billing Table */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
         <div className="overflow-x-auto">
@@ -103,7 +137,6 @@ export default function StaffBilling() {
             <thead className="bg-[var(--color-background)] border-b border-[var(--color-border)]">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Patient</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Description</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Amount (PHP)</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Date</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Status</th>
@@ -111,12 +144,11 @@ export default function StaffBilling() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {filteredBillings.map((billing) => (
+              {searchedBillings.map((billing) => (
                 <tr key={billing.id} className="hover:bg-[var(--color-background)] transition-colors">
                   <td className="px-6 py-4">
                     <p className="font-medium text-[var(--color-text)]">{billing.patient}</p>
                   </td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.description}</td>
                   <td className="px-6 py-4 text-[var(--color-text-muted)]">₱{billing.amount.toLocaleString()}</td>
                   <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.date}</td>
                   <td className="px-6 py-4">
@@ -161,25 +193,40 @@ export default function StaffBilling() {
             <form className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Patient</label>
-                <input
-                  type="text"
-                  placeholder="Search and select patient..."
-                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Description</label>
-                <textarea
-                  rows={3}
-                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search patient by name or email..."
+                    value={patientSearch}
+                    onChange={(e) => setPatientSearch(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  {patientSearch && filteredPatients.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--color-border)] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredPatients.map((patient) => (
+                        <button
+                          key={patient.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPatient(patient.name)
+                            setPatientSearch(patient.name)
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-[var(--color-background)] transition-colors"
+                        >
+                          <p className="font-medium">{patient.name}</p>
+                          <p className="text-sm text-[var(--color-text-muted)]">{patient.email}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Amount (PHP)</label>
                 <input
                   type="number"
+                  placeholder="Enter amount"
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>
@@ -195,17 +242,6 @@ export default function StaffBilling() {
                   <option value="paid">Paid</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                  Upload SOA File (Image or PDF)
-                </label>
-                <div className="border-2 border-dashed border-[var(--color-border)] rounded-lg p-8 text-center hover:border-[var(--color-primary)] transition-colors cursor-pointer">
-                  <Upload className="w-12 h-12 text-[var(--color-text-muted)] mx-auto mb-3" />
-                  <p className="text-sm text-[var(--color-text-muted)]">Click to upload or drag and drop</p>
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1">PDF or Image files</p>
-                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -252,16 +288,6 @@ export default function StaffBilling() {
                   type="text"
                   value={editingBilling.patient}
                   onChange={(e) => setEditingBilling({ ...editingBilling, patient: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Description</label>
-                <textarea
-                  rows={3}
-                  value={editingBilling.description}
-                  onChange={(e) => setEditingBilling({ ...editingBilling, description: e.target.value })}
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>

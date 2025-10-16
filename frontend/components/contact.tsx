@@ -18,21 +18,31 @@ export default function Contact() {
             <p className="text-[var(--color-text-muted)]">+63 912 345 6789</p>
           </div>
 
-          <div className="flex flex-col items-center text-center p-6 bg-[var(--color-background)] rounded-xl">
+          <a 
+            href="https://www.facebook.com/dental.dorotheo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center text-center p-6 bg-[var(--color-background)] rounded-xl hover:shadow-lg transition-shadow"
+          >
             <div className="w-16 h-16 bg-[var(--color-primary)] rounded-full flex items-center justify-center mb-4">
               <Facebook className="w-8 h-8 text-[var(--color-accent)]" />
             </div>
             <h3 className="text-lg font-semibold text-[var(--color-primary)] mb-2">Facebook</h3>
-            <p className="text-[var(--color-text-muted)]">@DentalClinicPH</p>
-          </div>
+            <p className="text-[var(--color-text-muted)]">Dorotheo Dental FB</p>
+          </a>
 
-          <div className="flex flex-col items-center text-center p-6 bg-[var(--color-background)] rounded-xl">
+          <a 
+            href="https://www.instagram.com/dorotheo.dental?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw%3D%3D"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center text-center p-6 bg-[var(--color-background)] rounded-xl hover:shadow-lg transition-shadow"
+          >
             <div className="w-16 h-16 bg-[var(--color-primary)] rounded-full flex items-center justify-center mb-4">
               <Instagram className="w-8 h-8 text-[var(--color-accent)]" />
             </div>
             <h3 className="text-lg font-semibold text-[var(--color-primary)] mb-2">Instagram</h3>
-            <p className="text-[var(--color-text-muted)]">@dentalclinic_ph</p>
-          </div>
+            <p className="text-[var(--color-text-muted)]">Dorotheo Dental IG</p>
+          </a>
         </div>
       </div>
     </section>

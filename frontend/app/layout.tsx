@@ -14,7 +14,7 @@ const playfair = Playfair_Display({
 })
 
 export const metadata = {
-  title: "Dental Clinic - Professional Dental Care",
+  title: "Dorotheo Dental Clinic Website",
   description: "Quality dental services with experienced professionals",
     generator: 'v0.app'
 }

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Search } from "lucide-react"
 
 export default function OwnerStaff() {
+  const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
 
   const staff = [
@@ -33,6 +34,12 @@ export default function OwnerStaff() {
     },
   ]
 
+  const filteredStaff = staff.filter((member) =>
+    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.role.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -47,6 +54,20 @@ export default function OwnerStaff() {
           <Plus className="w-5 h-5" />
           Add Staff
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-text-muted)]" />
+          <input
+            type="text"
+            placeholder="Search by name, email, or role..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          />
+        </div>
       </div>
 
       {/* Staff Table */}
@@ -64,7 +85,7 @@ export default function OwnerStaff() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {staff.map((member) => (
+              {filteredStaff.map((member) => (
                 <tr key={member.id} className="hover:bg-[var(--color-background)] transition-colors">
                   <td className="px-6 py-4">
                     <p className="font-medium text-[var(--color-text)]">{member.name}</p>

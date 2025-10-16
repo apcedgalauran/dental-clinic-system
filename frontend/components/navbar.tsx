@@ -3,11 +3,28 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Menu, X, User } from "lucide-react"
+import { useAuth } from "@/lib/auth"
 import RegisterModal from "./register-modal"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+  const { user } = useAuth()
+
+  // Determine dashboard route based on user type
+  const getDashboardRoute = () => {
+    if (!user) return "/login"
+    switch (user.user_type) {
+      case "patient":
+        return "/patient/dashboard"
+      case "staff":
+        return "/staff/dashboard"
+      case "owner":
+        return "/owner/dashboard"
+      default:
+        return "/login"
+    }
+  }
 
   return (
     <>
@@ -16,10 +33,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-[var(--color-accent)] rounded-lg flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">D</span>
-              </div>
-              <span className="text-xl font-semibold text-white">Dental Clinic</span>
+              <img src="/logo.png" alt="Dorotheo Dental Clinic" className="h-12 w-auto object-contain" />
             </Link>
 
             {/* Desktop Navigation */}
@@ -43,10 +57,21 @@ export default function Navbar() {
                 Schedule Appointment
               </button>
               <Link
-                href="/login"
-                className="p-2.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors"
+                href={getDashboardRoute()}
+                className="p-2.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors flex items-center gap-2"
+                title={user ? `${user.first_name} ${user.last_name}` : "Login"}
               >
-                <User className="w-5 h-5 text-white" />
+                {user ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-[var(--color-accent)] rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-medium">
+                        {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <User className="w-5 h-5 text-white" />
+                )}
               </Link>
             </div>
 
@@ -81,9 +106,25 @@ export default function Navbar() {
                 >
                   Schedule Appointment
                 </button>
-                <Link href="/login" className="flex items-center gap-2 text-white hover:text-[var(--color-accent)]">
-                  <User className="w-5 h-5" />
-                  Login
+                <Link 
+                  href={getDashboardRoute()} 
+                  className="flex items-center gap-2 text-white hover:text-[var(--color-accent)]"
+                >
+                  {user ? (
+                    <>
+                      <div className="w-8 h-8 bg-[var(--color-accent)] rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">
+                          {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                        </span>
+                      </div>
+                      <span>{user.first_name} {user.last_name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-5 h-5" />
+                      <span>Login</span>
+                    </>
+                  )}
                 </Link>
               </div>
             </div>

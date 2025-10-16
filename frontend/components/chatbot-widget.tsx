@@ -24,7 +24,7 @@ export default function ChatbotWidget() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hi there! 👋\nWelcome to Dental Clinic!\nHow can I help you today?",
+      text: "Hi there! 👋\nWelcome to Dorotheo Dental Clinic!\nHow can I help you today?",
       sender: "bot",
       timestamp: new Date(),
     },

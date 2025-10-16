@@ -6,6 +6,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth"
+import RegisterModal from "@/components/register-modal"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -16,6 +17,7 @@ export default function LoginPage() {
   })
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,11 +51,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--color-background)]">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
-              <span className="text-[var(--color-accent)] text-2xl font-bold">D</span>
+          <Link href="/" className="inline-flex flex-col items-center gap-4 mb-8">
+            <div className="px-8 py-4 bg-[var(--color-primary)] rounded-xl">
+              <img src="/logo.png" alt="Dorotheo Dental Clinic" className="h-16 w-auto object-contain" />
             </div>
-            <span className="text-xl font-semibold text-[var(--color-primary)]">Dental Clinic</span>
           </Link>
           <h1 className="text-3xl font-serif font-bold text-[var(--color-primary)] mb-2">Welcome Back</h1>
           <p className="text-[var(--color-text-muted)]">Sign in to access your account</p>
@@ -66,13 +67,14 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text)] mb-2">Username or Email</label>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-2">Email</label>
               <input
-                type="text"
+                type="email"
                 required
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                placeholder="your.email@example.com"
               />
             </div>
 
@@ -99,13 +101,18 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <p className="text-sm text-[var(--color-text-muted)]">
               Don't have an account?{" "}
-              <Link href="/" className="text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] font-medium">
+              <button 
+                onClick={() => setIsRegisterOpen(true)}
+                className="text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] font-medium"
+              >
                 Register as Patient
-              </Link>
+              </button>
             </p>
           </div>
         </div>
       </div>
+
+      <RegisterModal isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
     </div>
   )
 }
