@@ -1,21 +1,56 @@
 "use client"
 
 import { Calendar as CalendarIcon, Users, Clock, AlertTriangle, ChevronLeft, ChevronRight, Cake } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
+import Link from "next/link"
+
+interface Appointment {
+  id: number
+  date: string
+  time: string
+  patient_name: string
+  dentist_name: string
+  service_name: string | null
+  status: string
+}
 
 export default function OwnerDashboard() {
+  const { token } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [totalPatients, setTotalPatients] = useState(0)
+  const [activePatients, setActivePatients] = useState(0)
+  const [allAppointments, setAllAppointments] = useState<Appointment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // No sample data - will be filled with real data
-  const allAppointments: Array<{
-    id: number
-    date: string
-    time: string
-    patient: string
-    treatment: string
-    status: string
-  }> = []
+  // Fetch real data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!token) return
+      
+      try {
+        setIsLoading(true)
+        
+        // Fetch patients
+        const patients = await api.getPatients(token)
+        setTotalPatients(patients.length)
+        const active = patients.filter((p: any) => p.is_active_patient !== false).length
+        setActivePatients(active)
+        
+        // Fetch appointments
+        const appointments = await api.getAppointments(token)
+        setAllAppointments(appointments)
+      } catch (error) {
+        console.error("Error fetching data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [token])
 
   // No sample birthday data - will be filled with real data
   const birthdays: Array<{
@@ -26,11 +61,11 @@ export default function OwnerDashboard() {
 
   // Get appointments for today
   const todayStr = new Date().toISOString().split('T')[0]
-  const todayAppointments = allAppointments.filter(apt => apt.date === todayStr)
+  const todayAppointments = allAppointments.filter(apt => apt.date === todayStr).sort((a, b) => a.time.localeCompare(b.time))
 
   // Get appointments for selected date
   const selectedDateStr = selectedDate.toISOString().split('T')[0]
-  const selectedDayAppointments = allAppointments.filter(apt => apt.date === selectedDateStr)
+  const selectedDayAppointments = allAppointments.filter(apt => apt.date === selectedDateStr).sort((a, b) => a.time.localeCompare(b.time))
 
   // Calendar helper functions
   const getDaysInMonth = (date: Date) => {
@@ -111,7 +146,9 @@ export default function OwnerDashboard() {
               <Users className="w-6 h-6 text-green-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">
+            {isLoading ? "..." : totalPatients}
+          </p>
           <p className="text-sm text-[var(--color-text-muted)]">Total Patients</p>
         </div>
 
@@ -121,8 +158,10 @@ export default function OwnerDashboard() {
               <Clock className="w-6 h-6 text-purple-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
-          <p className="text-sm text-[var(--color-text-muted)]">Upcoming Appointments</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">
+            {isLoading ? "..." : activePatients}
+          </p>
+          <p className="text-sm text-[var(--color-text-muted)]">Active Patients</p>
         </div>
 
         <div className="bg-white p-6 rounded-xl border border-[var(--color-border)]">
@@ -134,6 +173,55 @@ export default function OwnerDashboard() {
           <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
           <p className="text-sm text-[var(--color-text-muted)]">Stock Alerts</p>
         </div>
+      </div>
+
+      {/* Today's Appointments Section */}
+      <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-[var(--color-primary)]">Today's Appointments</h2>
+          <Link href="/owner/appointments" className="text-sm text-[var(--color-primary)] hover:underline">
+            View All
+          </Link>
+        </div>
+        {isLoading ? (
+          <p className="text-center py-8 text-[var(--color-text-muted)]">Loading appointments...</p>
+        ) : todayAppointments.length > 0 ? (
+          <div className="space-y-3">
+            {todayAppointments.map((apt) => (
+              <div
+                key={apt.id}
+                className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="text-center min-w-[60px]">
+                    <p className="text-lg font-bold text-[var(--color-primary)]">{apt.time}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[var(--color-text)]">{apt.patient_name}</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                      {apt.service_name || "General Consultation"}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    apt.status === "confirmed"
+                      ? "bg-green-100 text-green-700"
+                      : apt.status === "pending"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : apt.status === "completed"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {apt.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center py-8 text-[var(--color-text-muted)]">No appointments scheduled for today</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -253,28 +341,28 @@ export default function OwnerDashboard() {
                 {selectedDayAppointments.map((apt) => (
                   <div
                     key={apt.id}
-                    className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
+                    className="p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-[var(--color-text)]">{apt.time}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-[var(--color-text-muted)] mb-1">Patient</p>
+                        <p className="font-semibold text-[var(--color-text)]">{apt.patient_name}</p>
                       </div>
                       <div>
-                        <p className="font-medium text-[var(--color-text)]">{apt.patient}</p>
-                        <p className="text-sm text-[var(--color-text-muted)]">{apt.treatment}</p>
+                        <p className="text-xs text-[var(--color-text-muted)] mb-1">Time</p>
+                        <p className="font-medium text-[var(--color-primary)]">{apt.time}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[var(--color-text-muted)] mb-1">Treatment</p>
+                        <p className="text-sm text-[var(--color-text)]">
+                          {apt.service_name || "General Consultation"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[var(--color-text-muted)] mb-1">Dentist</p>
+                        <p className="text-sm text-[var(--color-text)]">{apt.dentist_name}</p>
                       </div>
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        apt.status === "confirmed" 
-                          ? "bg-green-100 text-green-700" 
-                          : apt.status === "completed"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {apt.status}
-                    </span>
                   </div>
                 ))}
               </div>

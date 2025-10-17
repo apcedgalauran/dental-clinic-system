@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react"
 import { Edit2, Download } from "lucide-react"
 import { useAuth } from "@/lib/auth"
+import { api } from "@/lib/api"
 
 export default function PatientProfile() {
-  const { user, token } = useAuth()
+  const { user, token, setUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [profile, setProfile] = useState({
     firstName: "",
     lastName: "",
@@ -37,9 +39,37 @@ export default function PatientProfile() {
   ]
 
   const handleSave = async () => {
-    // TODO: Implement API call to update profile
-    setIsEditing(false)
-    alert("Profile updated! (Save functionality to be implemented)")
+    if (!token) {
+      alert("Please log in to update your profile")
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      const updateData = {
+        first_name: profile.firstName,
+        last_name: profile.lastName,
+        email: profile.email,
+        phone: profile.phone,
+        birthday: profile.birthday,
+        address: profile.address,
+      }
+
+      const updatedUser = await api.updateProfile(token, updateData)
+      
+      // Update the user in auth context
+      if (setUser) {
+        setUser(updatedUser)
+      }
+      
+      setIsEditing(false)
+      alert("Profile updated successfully!")
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      alert("Failed to update profile. Please try again.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -143,52 +173,20 @@ export default function PatientProfile() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setIsEditing(false)}
-              className="px-6 py-2.5 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              disabled={isSaving}
+              className="px-6 py-2.5 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2.5 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
+              disabled={isSaving}
+              className="px-6 py-2.5 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         )}
-      </div>
-
-      {/* Full Tooth Chart */}
-      <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-        <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-6">Full Tooth Chart</h2>
-        <div className="space-y-8">
-          <div>
-            <h3 className="text-sm font-medium text-[var(--color-text-muted)] mb-3">Upper Jaw</h3>
-            <div className="grid grid-cols-8 gap-3">
-              {Array.from({ length: 16 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <div className="w-full aspect-square bg-[var(--color-background)] border-2 border-[var(--color-primary)] rounded-lg flex items-center justify-center text-sm font-medium">
-                    {i + 1}
-                  </div>
-                  <span className="text-xs text-[var(--color-text-muted)]">Healthy</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-[var(--color-text-muted)] mb-3">Lower Jaw</h3>
-            <div className="grid grid-cols-8 gap-3">
-              {Array.from({ length: 16 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <div className="w-full aspect-square bg-[var(--color-background)] border-2 border-[var(--color-primary)] rounded-lg flex items-center justify-center text-sm font-medium">
-                    {i + 17}
-                  </div>
-                  <span className="text-xs text-[var(--color-text-muted)]">Healthy</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Downloadable Documents */}

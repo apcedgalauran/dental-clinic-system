@@ -22,24 +22,10 @@ interface InventoryItem {
 export default function OwnerAnalytics() {
   const [timeFilter, setTimeFilter] = useState<"daily" | "weekly" | "monthly" | "annual">("monthly")
 
-  const billings: Billing[] = [
-    { id: 1, patient: "John Doe", amount: 15000, date: "2025-10-15", status: "paid" },
-    { id: 2, patient: "Jane Smith", amount: 8000, date: "2025-10-14", status: "paid" },
-    { id: 3, patient: "Mike Johnson", amount: 2500, date: "2025-10-10", status: "paid" },
-    { id: 4, patient: "Sarah Williams", amount: 12000, date: "2025-10-08", status: "paid" },
-    { id: 5, patient: "Robert Brown", amount: 5000, date: "2025-10-05", status: "pending" },
-    { id: 6, patient: "Emily Davis", amount: 7500, date: "2025-09-28", status: "paid" },
-    { id: 7, patient: "David Wilson", amount: 10000, date: "2025-09-20", status: "paid" },
-    { id: 8, patient: "Lisa Anderson", amount: 6000, date: "2025-09-15", status: "paid" },
-  ]
+  // Remove sample data - will fetch from API
+  const billings: Billing[] = []
 
-  const inventory: InventoryItem[] = [
-    { id: 1, name: "Dental Gloves", quantity: 100, cost: 500, dateAdded: "2025-10-12" },
-    { id: 2, name: "Face Masks", quantity: 200, cost: 800, dateAdded: "2025-10-10" },
-    { id: 3, name: "Anesthetic", quantity: 50, cost: 2500, dateAdded: "2025-10-08" },
-    { id: 4, name: "Dental Mirrors", quantity: 30, cost: 1500, dateAdded: "2025-09-25" },
-    { id: 5, name: "Syringes", quantity: 150, cost: 1200, dateAdded: "2025-09-20" },
-  ]
+  const inventory: InventoryItem[] = []
 
   const getDateRange = () => {
     const now = new Date()

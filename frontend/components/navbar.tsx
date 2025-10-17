@@ -2,14 +2,16 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Menu, X, User } from "lucide-react"
+import { Menu, X, User, LogOut } from "lucide-react"
 import { useAuth } from "@/lib/auth"
+import { useRouter } from "next/navigation"
 import RegisterModal from "./register-modal"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const router = useRouter()
 
   // Determine dashboard route based on user type
   const getDashboardRoute = () => {
@@ -24,6 +26,12 @@ export default function Navbar() {
       default:
         return "/login"
     }
+  }
+
+  const handleLogout = () => {
+    logout()
+    router.push("/")
+    setIsMenuOpen(false)
   }
 
   return (
@@ -56,23 +64,37 @@ export default function Navbar() {
               >
                 Schedule Appointment
               </button>
-              <Link
-                href={getDashboardRoute()}
-                className="p-2.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors flex items-center gap-2"
-                title={user ? `${user.first_name} ${user.last_name}` : "Login"}
-              >
-                {user ? (
-                  <div className="flex items-center gap-2">
+              
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={getDashboardRoute()}
+                    className="p-2.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors flex items-center gap-2"
+                    title={`${user.first_name} ${user.last_name}`}
+                  >
                     <div className="w-8 h-8 bg-[var(--color-accent)] rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-medium">
                         {user.first_name.charAt(0)}{user.last_name.charAt(0)}
                       </span>
                     </div>
-                  </div>
-                ) : (
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="p-2.5 rounded-lg border border-white/20 hover:bg-red-500/20 transition-colors flex items-center gap-2"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="p-2.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  title="Login"
+                >
                   <User className="w-5 h-5 text-white" />
-                )}
-              </Link>
+                </Link>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -106,26 +128,37 @@ export default function Navbar() {
                 >
                   Schedule Appointment
                 </button>
-                <Link 
-                  href={getDashboardRoute()} 
-                  className="flex items-center gap-2 text-white hover:text-[var(--color-accent)]"
-                >
-                  {user ? (
-                    <>
+                
+                {user ? (
+                  <>
+                    <Link 
+                      href={getDashboardRoute()} 
+                      className="flex items-center gap-2 text-white hover:text-[var(--color-accent)]"
+                    >
                       <div className="w-8 h-8 bg-[var(--color-accent)] rounded-full flex items-center justify-center">
                         <span className="text-white text-sm font-medium">
                           {user.first_name.charAt(0)}{user.last_name.charAt(0)}
                         </span>
                       </div>
                       <span>{user.first_name} {user.last_name}</span>
-                    </>
-                  ) : (
-                    <>
-                      <User className="w-5 h-5" />
-                      <span>Login</span>
-                    </>
-                  )}
-                </Link>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 text-white hover:text-red-400 transition-colors"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span>Logout</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link 
+                    href="/login" 
+                    className="flex items-center gap-2 text-white hover:text-[var(--color-accent)]"
+                  >
+                    <User className="w-5 h-5" />
+                    <span>Login</span>
+                  </Link>
+                )}
               </div>
             </div>
           )}

@@ -11,33 +11,27 @@ interface Billing {
   patient: string
   amount: number
   date: string
-  status: "pending" | "paid" | "cancelled"
+  status: BillingStatus
 }
 
-// Mock patient data
-const mockPatients = [
-  { id: 1, name: "John Doe", email: "john@email.com" },
-  { id: 2, name: "Jane Smith", email: "jane@email.com" },
-  { id: 3, name: "Mike Johnson", email: "mike@email.com" },
-  { id: 4, name: "Sarah Williams", email: "sarah@email.com" },
-  { id: 5, name: "Robert Brown", email: "robert@email.com" },
-]
+interface Patient {
+  id: number
+  name: string
+  email: string
+}
 
 export default function StaffBilling() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingBilling, setEditingBilling] = useState<Billing | null>(null)
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "paid" | "cancelled">("all")
-  const [newBillingStatus, setNewBillingStatus] = useState<"pending" | "paid" | "cancelled">("pending")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [newBillingStatus, setNewBillingStatus] = useState<BillingStatus>("pending")
   const [searchQuery, setSearchQuery] = useState("")
   const [patientSearch, setPatientSearch] = useState("")
   const [selectedPatient, setSelectedPatient] = useState("")
 
-  const [billings, setBillings] = useState<Billing[]>([
-    { id: 1, patient: "John Doe", amount: 15000, date: "2025-01-15", status: "pending" },
-    { id: 2, patient: "Jane Smith", amount: 8000, date: "2025-01-10", status: "paid" },
-    { id: 3, patient: "Mike Johnson", amount: 2500, date: "2025-01-08", status: "paid" },
-  ])
+  const [billings, setBillings] = useState<Billing[]>([])
+  const [mockPatients] = useState<Patient[]>([])  // Empty - will be populated from API in future
 
   const getStatusBadgeClass = (status: BillingStatus) => {
     if (status === 'paid') return 'bg-green-100 text-green-700'
@@ -141,44 +135,52 @@ export default function StaffBilling() {
 
       {/* Billing Table */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[var(--color-background)] border-b border-[var(--color-border)]">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Patient</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Amount (PHP)</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Date</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)]">
-              {searchedBillings.map((billing) => (
-                <tr key={billing.id} className="hover:bg-[var(--color-background)] transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-[var(--color-text)]">{billing.patient}</p>
-                  </td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">₱{billing.amount.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.date}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(billing.status)}`}>
-                      {billing.status.charAt(0).toUpperCase() + billing.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleEdit(billing)}
-                      className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 className="w-4 h-4 text-blue-600" />
-                    </button>
-                  </td>
+        {searchedBillings.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-[var(--color-text-muted)]">
+              {searchQuery ? "No billing records found matching your search." : "No billing records yet. Add your first statement of account to get started!"}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[var(--color-background)] border-b border-[var(--color-border)]">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Patient</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Amount (PHP)</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Date</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text)]">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border)]">
+                {searchedBillings.map((billing) => (
+                  <tr key={billing.id} className="hover:bg-[var(--color-background)] transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-[var(--color-text)]">{billing.patient}</p>
+                    </td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">₱{billing.amount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{billing.date}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(billing.status)}`}>
+                        {billing.status.charAt(0).toUpperCase() + billing.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => handleEdit(billing)}
+                        className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4 text-blue-600" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Add SOA Modal */}

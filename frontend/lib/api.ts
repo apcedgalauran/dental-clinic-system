@@ -135,6 +135,89 @@ export const api = {
     return response.json()
   },
 
+  updateAppointment: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error("Failed to update appointment")
+    return response.json()
+  },
+
+  deleteAppointment: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/`, {
+      method: "DELETE",
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error("Failed to delete appointment")
+  },
+
+  approveReschedule: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/approve_reschedule/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    if (!response.ok) throw new Error("Failed to approve reschedule")
+    return response.json()
+  },
+
+  rejectReschedule: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/reject_reschedule/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    if (!response.ok) throw new Error("Failed to reject reschedule")
+    return response.json()
+  },
+
+  // Cancel request endpoints
+  requestCancel: async (id: number, reason: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/request_cancel/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason }),
+    })
+    if (!response.ok) throw new Error("Failed to request cancellation")
+    return response.json()
+  },
+
+  approveCancel: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/approve_cancel/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    if (!response.ok) throw new Error("Failed to approve cancellation")
+    return response.json()
+  },
+
+  rejectCancel: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/reject_cancel/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    if (!response.ok) throw new Error("Failed to reject cancellation")
+    return response.json()
+  },
+
   // Patients endpoints
   getPatients: async (token: string) => {
     const response = await fetch(`${API_BASE_URL}/users/patients/`, {
@@ -260,5 +343,81 @@ export const api = {
     })
     if (!response.ok) return []
     return response.json()
+  },
+
+  // Dental Records endpoints
+  getDentalRecords: async (patientId: number | null, token: string) => {
+    const url = patientId 
+      ? `${API_BASE_URL}/dental-records/?patient=${patientId}`
+      : `${API_BASE_URL}/dental-records/`
+    
+    const response = await fetch(url, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) return []
+    return response.json()
+  },
+
+  getDentalRecord: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/dental-records/${id}/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch dental record')
+    return response.json()
+  },
+
+  createDentalRecord: async (data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/dental-records/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to create dental record')
+    return response.json()
+  },
+
+  // Documents (X-ray images) endpoints
+  getDocuments: async (patientId: number | null, token: string) => {
+    const url = patientId 
+      ? `${API_BASE_URL}/documents/?patient=${patientId}`
+      : `${API_BASE_URL}/documents/`
+    
+    const response = await fetch(url, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) return []
+    return response.json()
+  },
+
+  uploadDocument: async (patientId: number, file: File, documentType: string, title: string, description: string, token: string) => {
+    const formData = new FormData()
+    formData.append('patient', patientId.toString())
+    formData.append('file', file)
+    formData.append('document_type', documentType)
+    formData.append('title', title)
+    formData.append('description', description)
+
+    const response = await fetch(`${API_BASE_URL}/documents/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to upload document')
+    }
+    return response.json()
+  },
+
+  deleteDocument: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/documents/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to delete document')
   },
 }

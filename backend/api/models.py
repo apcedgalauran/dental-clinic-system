@@ -9,7 +9,13 @@ class User(AbstractUser):
         ('staff', 'Receptionist/Dentist'),
         ('owner', 'Owner'),
     )
+    STAFF_ROLES = (
+        ('', 'Not Assigned'),
+        ('receptionist', 'Receptionist'),
+        ('dentist', 'Dentist'),
+    )
     user_type = models.CharField(max_length=20, choices=USER_TYPES, default='patient')
+    role = models.CharField(max_length=20, choices=STAFF_ROLES, blank=True, default='')
     phone = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
     birthday = models.DateField(null=True, blank=True)
@@ -84,14 +90,28 @@ class Appointment(models.Model):
         ('confirmed', 'Confirmed'),
         ('cancelled', 'Cancelled'),
         ('completed', 'Completed'),
+        ('reschedule_requested', 'Reschedule Requested'),
+        ('cancel_requested', 'Cancel Requested'),
     )
     patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='appointments')
     dentist = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='dentist_appointments')
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
     date = models.DateField()
     time = models.TimeField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     notes = models.TextField(blank=True)
+    
+    # Reschedule request fields
+    reschedule_date = models.DateField(null=True, blank=True)
+    reschedule_time = models.TimeField(null=True, blank=True)
+    reschedule_service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True, related_name='reschedule_requests')
+    reschedule_dentist = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reschedule_requests')
+    reschedule_notes = models.TextField(blank=True)
+    
+    # Cancel request fields
+    cancel_reason = models.TextField(blank=True)
+    cancel_requested_at = models.DateTimeField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

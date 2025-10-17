@@ -21,19 +21,19 @@ def create_initial_accounts():
     print("=" * 60)
     
     # Create owner account
-    if not User.objects.filter(email='owner@dorotheo.com').exists():
+    if not User.objects.filter(email='owner@admin.dorotheo.com').exists():
         owner = User.objects.create_user(
-            username='owner@dorotheo.com',
-            email='owner@dorotheo.com',
+            username='owner@admin.dorotheo.com',
+            email='owner@admin.dorotheo.com',
             password='owner123',
             user_type='owner',
-            first_name='Dr. Marvin',
+            first_name='Marvin',
             last_name='Dorotheo',
             phone='09171234567',
             address='Dorotheo Dental Clinic Main Office'
         )
         print("✓ Owner account created:")
-        print(f"  Email: owner@dorotheo.com")
+        print(f"  Email: owner@admin.dorotheo.com")
         print(f"  Password: owner123")
         print(f"  Name: {owner.get_full_name()}")
     else:

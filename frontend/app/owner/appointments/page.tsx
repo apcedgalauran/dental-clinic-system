@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment } from "react"
+import { useState, Fragment, useEffect } from "react"
 import { 
   Plus, 
   Eye, 
@@ -19,85 +19,158 @@ import {
   Mail,
   MapPin
 } from "lucide-react"
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
 
 interface Appointment {
   id: number
-  patient: string
-  email: string
-  phone: string
-  treatment: string
+  patient: number
+  patient_name: string
+  patient_email: string
+  dentist: number | null
+  dentist_name: string | null
+  service: number | null
+  service_name: string | null
   date: string
   time: string
-  dentist: string
-  status: "confirmed" | "pending" | "cancelled" | "completed"
-  duration: string
-  cost: number
+  status: "confirmed" | "pending" | "cancelled" | "completed" | "reschedule_requested" | "cancel_requested"
   notes: string
-  patientAddress: string
-  patientAge: number
-  previousVisits: number
+  created_at: string
+  updated_at: string
+  reschedule_date: string | null
+  reschedule_time: string | null
+  reschedule_service: number | null
+  reschedule_service_name: string | null
+  reschedule_dentist: number | null
+  reschedule_dentist_name: string | null
+  reschedule_notes: string
+  cancel_reason: string
+}
+
+interface Patient {
+  id: number
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  address: string
+}
+
+interface Service {
+  id: number
+  name: string
+  category: string
+  description: string
+}
+
+interface Staff {
+  id: number
+  first_name: string
+  last_name: string
+  user_type: string
 }
 
 export default function OwnerAppointments() {
+  const { token } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [editingRow, setEditingRow] = useState<number | null>(null)
   const [editedData, setEditedData] = useState<Partial<Appointment>>({})
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [services, setServices] = useState<Service[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [newAppointment, setNewAppointment] = useState({
+    patient: "",
+    date: "",
+    time: "",
+    dentist: "",
+    service: "",
+    notes: "",
+  })
 
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: 1,
-      patient: "John Doe",
-      email: "john.doe@email.com",
-      phone: "+63 912 345 6789",
-      treatment: "Teeth Cleaning",
-      date: "2025-01-20",
-      time: "10:00 AM",
-      dentist: "Dr. Sarah Johnson",
-      status: "confirmed",
-      duration: "45 minutes",
-      cost: 2500,
-      notes: "Patient requests gentle cleaning. Sensitive to cold.",
-      patientAddress: "123 Main St, Manila",
-      patientAge: 34,
-      previousVisits: 12,
-    },
-    {
-      id: 2,
-      patient: "Jane Smith",
-      email: "jane.smith@email.com",
-      phone: "+63 923 456 7890",
-      treatment: "Root Canal",
-      date: "2025-01-22",
-      time: "2:00 PM",
-      dentist: "Dr. Sarah Johnson",
-      status: "pending",
-      duration: "90 minutes",
-      cost: 8500,
-      notes: "Follow-up from previous consultation. Tooth #14.",
-      patientAddress: "456 Oak Ave, Quezon City",
-      patientAge: 39,
-      previousVisits: 8,
-    },
-    {
-      id: 3,
-      patient: "Mike Johnson",
-      email: "mike.j@email.com",
-      phone: "+63 934 567 8901",
-      treatment: "Dental Check-up",
-      date: "2025-01-25",
-      time: "11:00 AM",
-      dentist: "Dr. Sarah Johnson",
-      status: "confirmed",
-      duration: "30 minutes",
-      cost: 1500,
-      notes: "Regular 6-month check-up.",
-      patientAddress: "789 Pine Rd, Makati",
-      patientAge: 46,
-      previousVisits: 15,
-    },
-  ])
+  // Fetch patients, services, and staff for the appointment dropdown
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!token) return
+      
+      try {
+        const [patientsData, servicesData, staffData] = await Promise.all([
+          api.getPatients(token),
+          api.getServices(),
+          api.getStaff(token)
+        ])
+        setPatients(patientsData)
+        setServices(servicesData)
+        setStaff(staffData.filter((s: Staff) => s.user_type === 'dentist' || s.user_type === 'owner'))
+      } catch (error) {
+        console.error("Error fetching data:", error)
+      }
+    }
+
+    fetchData()
+  }, [token])
+
+  // Fetch appointments from API
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!token) return
+      
+      try {
+        setIsLoading(true)
+        const response = await api.getAppointments(token)
+        console.log("Fetched appointments:", response)
+        setAppointments(response)
+      } catch (error) {
+        console.error("Error fetching appointments:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAppointments()
+  }, [token])
+
+  const handleAddAppointment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!token || !selectedPatientId) {
+      alert("Please select a patient")
+      return
+    }
+
+    try {
+      const appointmentData = {
+        patient: selectedPatientId,
+        date: newAppointment.date,
+        time: newAppointment.time,
+        dentist: newAppointment.dentist ? parseInt(newAppointment.dentist) : null,
+        service: newAppointment.service ? parseInt(newAppointment.service) : null,
+        notes: newAppointment.notes,
+        status: "confirmed", // Owner/Staff create confirmed appointments
+      }
+
+      const createdAppointment = await api.createAppointment(appointmentData, token)
+      setAppointments([createdAppointment, ...appointments])
+      setShowAddModal(false)
+      setSelectedPatientId(null)
+      setNewAppointment({
+        patient: "",
+        date: "",
+        time: "",
+        dentist: "",
+        service: "",
+        notes: "",
+      })
+      alert("Appointment created successfully!")
+    } catch (error) {
+      console.error("Error creating appointment:", error)
+      alert("Failed to create appointment. Please try again.")
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -109,10 +182,87 @@ export default function OwnerAppointments() {
         return "bg-red-100 text-red-700"
       case "completed":
         return "bg-blue-100 text-blue-700"
+      case "reschedule_requested":
+        return "bg-orange-100 text-orange-700"
+      case "cancel_requested":
+        return "bg-red-100 text-red-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
   }
+
+  const formatStatus = (status: string) => {
+    switch (status) {
+      case "reschedule_requested":
+        return "Reschedule Requested"
+      case "cancel_requested":
+        return "Cancellation Requested"
+      case "confirmed":
+        return "Confirmed"
+      case "pending":
+        return "Pending"
+      case "cancelled":
+        return "Cancelled"
+      case "completed":
+        return "Completed"
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1)
+    }
+  }
+
+  const handleApproveReschedule = async (appointment: Appointment) => {
+    try {
+      const updatedAppointment = await api.approveReschedule(appointment.id, token!)
+      setAppointments(appointments.map(apt => apt.id === appointment.id ? updatedAppointment : apt))
+      alert("Reschedule request approved successfully!")
+    } catch (error) {
+      console.error("Error approving reschedule:", error)
+      alert("Failed to approve reschedule request.")
+    }
+  }
+
+  const handleRejectReschedule = async (appointment: Appointment) => {
+    if (!confirm("Are you sure you want to reject this reschedule request?")) {
+      return
+    }
+    try {
+      const updatedAppointment = await api.rejectReschedule(appointment.id, token!)
+      setAppointments(appointments.map(apt => apt.id === appointment.id ? updatedAppointment : apt))
+      alert("Reschedule request rejected.")
+    } catch (error) {
+      console.error("Error rejecting reschedule:", error)
+      alert("Failed to reject reschedule request.")
+    }
+  }
+
+  const handleApproveCancel = async (appointment: Appointment) => {
+    if (!confirm("Are you sure you want to approve this cancellation? This will permanently delete the appointment.")) {
+      return
+    }
+    try {
+      await api.approveCancel(appointment.id, token!)
+      setAppointments(appointments.filter(apt => apt.id !== appointment.id))
+      alert("Cancellation approved. Appointment has been deleted.")
+    } catch (error) {
+      console.error("Error approving cancellation:", error)
+      alert("Failed to approve cancellation.")
+    }
+  }
+
+  const handleRejectCancel = async (appointment: Appointment) => {
+    if (!confirm("Are you sure you want to reject this cancellation request?")) {
+      return
+    }
+    try {
+      const updatedAppointment = await api.rejectCancel(appointment.id, token!)
+      setAppointments(appointments.map(apt => apt.id === appointment.id ? updatedAppointment : apt))
+      alert("Cancellation request rejected. Appointment remains confirmed.")
+    } catch (error) {
+      console.error("Error rejecting cancellation:", error)
+      alert("Failed to reject cancellation.")
+    }
+  }
+
 
   const handleRowClick = (appointmentId: number) => {
     if (editingRow === appointmentId) return
@@ -126,14 +276,33 @@ export default function OwnerAppointments() {
     setExpandedRow(appointment.id)
   }
 
-  const handleSave = (appointmentId: number) => {
-    setAppointments(
-      appointments.map((apt) =>
-        apt.id === appointmentId ? { ...apt, ...editedData } as Appointment : apt
+  const handleSave = async (appointmentId: number) => {
+    if (!token) return
+
+    try {
+      // Only send the editable fields to the API
+      const updateData = {
+        status: editedData.status,
+        notes: editedData.notes,
+        date: editedData.date,
+        time: editedData.time,
+      }
+
+      await api.updateAppointment(appointmentId, updateData, token)
+      
+      // Update local state
+      setAppointments(
+        appointments.map((apt) =>
+          apt.id === appointmentId ? { ...apt, ...editedData } as Appointment : apt
+        )
       )
-    )
-    setEditingRow(null)
-    setEditedData({})
+      setEditingRow(null)
+      setEditedData({})
+      alert("Appointment updated successfully!")
+    } catch (error) {
+      console.error("Error updating appointment:", error)
+      alert("Failed to update appointment. Please try again.")
+    }
   }
 
   const handleCancel = () => {
@@ -141,11 +310,20 @@ export default function OwnerAppointments() {
     setEditedData({})
   }
 
-  const handleDelete = (appointmentId: number, e: React.MouseEvent) => {
+  const handleDelete = async (appointmentId: number, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (confirm("Are you sure you want to delete this appointment?")) {
+    if (!confirm("Are you sure you want to delete this appointment?")) return
+
+    if (!token) return
+
+    try {
+      await api.deleteAppointment(appointmentId, token)
       setAppointments(appointments.filter((apt) => apt.id !== appointmentId))
       setExpandedRow(null)
+      alert("Appointment deleted successfully!")
+    } catch (error) {
+      console.error("Error deleting appointment:", error)
+      alert("Failed to delete appointment. Please try again.")
     }
   }
 
@@ -158,9 +336,10 @@ export default function OwnerAppointments() {
   }
 
   const filteredAppointments = appointments.filter((apt) =>
-    apt.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    apt.treatment.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    apt.dentist.toLowerCase().includes(searchQuery.toLowerCase())
+    apt.patient_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.service_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.dentist_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.status?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -224,18 +403,18 @@ export default function OwnerAppointments() {
                           <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)]" />
                         )}
                         <div>
-                          <p className="font-medium text-[var(--color-text)]">{apt.patient}</p>
-                          <p className="text-sm text-[var(--color-text-muted)]">{apt.email}</p>
+                          <p className="font-medium text-[var(--color-text)]">{apt.patient_name || "Unknown"}</p>
+                          <p className="text-sm text-[var(--color-text-muted)]">{apt.patient_email || "N/A"}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.treatment}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.service_name || "General Consultation"}</td>
                     <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.date}</td>
                     <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.time}</td>
-                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.dentist}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.dentist_name || "Not Assigned"}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
-                        {apt.status}
+                        {formatStatus(apt.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -300,113 +479,49 @@ export default function OwnerAppointments() {
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Patient Name</label>
+                                  <label className="block text-sm font-medium mb-1.5">Patient Name (Read-only)</label>
                                   <input
                                     type="text"
-                                    value={editedData.patient || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, patient: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    value={apt.patient_name || ""}
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Email</label>
-                                  <input
-                                    type="email"
-                                    value={editedData.email || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1.5">Phone</label>
-                                  <input
-                                    type="tel"
-                                    value={editedData.phone || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1.5">Treatment</label>
+                                  <label className="block text-sm font-medium mb-1.5">Status *</label>
                                   <select
-                                    value={editedData.treatment || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, treatment: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  >
-                                    <option value="Teeth Cleaning">Teeth Cleaning</option>
-                                    <option value="Root Canal">Root Canal</option>
-                                    <option value="Dental Check-up">Dental Check-up</option>
-                                    <option value="Tooth Extraction">Tooth Extraction</option>
-                                    <option value="Teeth Whitening">Teeth Whitening</option>
-                                    <option value="Dental Filling">Dental Filling</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1.5">Date</label>
-                                  <input
-                                    type="date"
-                                    value={editedData.date || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, date: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1.5">Time</label>
-                                  <input
-                                    type="text"
-                                    value={editedData.time || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, time: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1.5">Dentist</label>
-                                  <select
-                                    value={editedData.dentist || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, dentist: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  >
-                                    <option value="Dr. Sarah Johnson">Dr. Sarah Johnson</option>
-                                    <option value="Dr. Michael Chen">Dr. Michael Chen</option>
-                                    <option value="Dr. Emily Davis">Dr. Emily Davis</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium mb-1.5">Status</label>
-                                  <select
-                                    value={editedData.status || ""}
+                                    value={editedData.status || apt.status}
                                     onChange={(e) => setEditedData({ ...editedData, status: e.target.value as Appointment["status"] })}
                                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                                   >
-                                    <option value="confirmed">Confirmed</option>
                                     <option value="pending">Pending</option>
+                                    <option value="confirmed">Confirmed</option>
                                     <option value="cancelled">Cancelled</option>
                                     <option value="completed">Completed</option>
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Duration</label>
+                                  <label className="block text-sm font-medium mb-1.5">Date *</label>
                                   <input
-                                    type="text"
-                                    value={editedData.duration || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, duration: e.target.value })}
-                                    placeholder="e.g., 45 minutes"
+                                    type="date"
+                                    value={editedData.date || apt.date}
+                                    onChange={(e) => setEditedData({ ...editedData, date: e.target.value })}
                                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Cost (₱)</label>
+                                  <label className="block text-sm font-medium mb-1.5">Time *</label>
                                   <input
-                                    type="number"
-                                    value={editedData.cost || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, cost: Number(e.target.value) })}
+                                    type="time"
+                                    value={editedData.time || apt.time}
+                                    onChange={(e) => setEditedData({ ...editedData, time: e.target.value })}
                                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                                   />
                                 </div>
                                 <div className="md:col-span-2">
                                   <label className="block text-sm font-medium mb-1.5">Notes</label>
                                   <textarea
-                                    value={editedData.notes || ""}
+                                    value={editedData.notes !== undefined ? editedData.notes : apt.notes}
                                     onChange={(e) => setEditedData({ ...editedData, notes: e.target.value })}
                                     rows={3}
                                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
@@ -437,50 +552,131 @@ export default function OwnerAppointments() {
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {/* Patient Information Card */}
-                                <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
-                                  <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
-                                    <User className="w-5 h-5" />
-                                    Patient Information
-                                  </h4>
-                                  <div className="space-y-3 text-sm">
-                                    <div>
-                                      <p className="text-[var(--color-text-muted)] mb-0.5">Full Name</p>
-                                      <p className="font-medium">{apt.patient}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[var(--color-text-muted)] mb-0.5">Age</p>
-                                      <p className="font-medium">{apt.patientAge} years</p>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                      <Mail className="w-4 h-4 text-[var(--color-text-muted)] mt-0.5" />
-                                      <div>
-                                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Email</p>
-                                        <p className="font-medium break-all">{apt.email}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                      <Phone className="w-4 h-4 text-[var(--color-text-muted)] mt-0.5" />
-                                      <div>
-                                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Phone</p>
-                                        <p className="font-medium">{apt.phone}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                      <MapPin className="w-4 h-4 text-[var(--color-text-muted)] mt-0.5" />
-                                      <div>
-                                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Address</p>
-                                        <p className="font-medium">{apt.patientAddress}</p>
-                                      </div>
-                                    </div>
-                                    <div className="pt-2 border-t border-[var(--color-border)]">
-                                      <p className="text-[var(--color-text-muted)] mb-1">Previous Visits</p>
-                                      <p className="font-semibold text-[var(--color-primary)]">{apt.previousVisits} visits</p>
+                              {/* Reschedule Request Section */}
+                              {apt.status === "reschedule_requested" && (
+                                <div className="mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-orange-800 flex items-center gap-2">
+                                      <Clock className="w-5 h-5" />
+                                      Reschedule Request Pending
+                                    </h3>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleApproveReschedule(apt)}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                      >
+                                        Approve Reschedule
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectReschedule(apt)}
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                                      >
+                                        Reject Reschedule
+                                      </button>
                                     </div>
                                   </div>
-                                </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Current Appointment Details */}
+                                    <div className="bg-white rounded-lg p-4 border border-orange-200">
+                                      <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                        <Calendar className="w-4 h-4" />
+                                        Current Appointment
+                                      </h4>
+                                      <div className="space-y-2 text-sm">
+                                        <div>
+                                          <span className="text-gray-500">Date:</span>
+                                          <span className="ml-2 font-medium">{apt.date}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500">Time:</span>
+                                          <span className="ml-2 font-medium">{apt.time}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500">Service:</span>
+                                          <span className="ml-2 font-medium">{apt.service_name || "N/A"}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-500">Dentist:</span>
+                                          <span className="ml-2 font-medium">{apt.dentist_name || "N/A"}</span>
+                                        </div>
+                                      </div>
+                                    </div>
 
+                                    {/* Requested New Appointment Details */}
+                                    <div className="bg-orange-100 rounded-lg p-4 border border-orange-300">
+                                      <h4 className="font-semibold text-orange-800 mb-3 flex items-center gap-2">
+                                        <Clock className="w-4 h-4" />
+                                        Requested Changes
+                                      </h4>
+                                      <div className="space-y-2 text-sm">
+                                        <div>
+                                          <span className="text-orange-700">New Date:</span>
+                                          <span className="ml-2 font-medium text-orange-900">{apt.reschedule_date || apt.date}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-orange-700">New Time:</span>
+                                          <span className="ml-2 font-medium text-orange-900">{apt.reschedule_time || apt.time}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-orange-700">New Service:</span>
+                                          <span className="ml-2 font-medium text-orange-900">{apt.reschedule_service_name || apt.service_name || "N/A"}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-orange-700">New Dentist:</span>
+                                          <span className="ml-2 font-medium text-orange-900">{apt.reschedule_dentist_name || apt.dentist_name || "N/A"}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {apt.reschedule_notes && (
+                                    <div className="mt-4 bg-white rounded-lg p-4 border border-orange-200">
+                                      <p className="text-sm text-gray-500 mb-1">Patient's Note:</p>
+                                      <p className="text-sm text-gray-800">{apt.reschedule_notes}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Cancel Request Section */}
+                              {apt.status === "cancel_requested" && (
+                                <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-red-800 flex items-center gap-2">
+                                      <X className="w-5 h-5" />
+                                      Cancellation Request Pending
+                                    </h3>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleApproveCancel(apt)}
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                                      >
+                                        Approve & Delete
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectCancel(apt)}
+                                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                                      >
+                                        Reject Cancellation
+                                      </button>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="bg-white rounded-lg p-4 border border-red-200">
+                                    <h4 className="font-semibold text-gray-700 mb-3">Cancellation Reason</h4>
+                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{apt.cancel_reason || "No reason provided"}</p>
+                                  </div>
+
+                                  <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded-lg">
+                                    <p className="text-sm text-amber-800">
+                                      <strong>Warning:</strong> Approving this cancellation will permanently delete the appointment from all users' views.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Appointment Details Card */}
                                 <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
                                   <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
@@ -489,8 +685,13 @@ export default function OwnerAppointments() {
                                   </h4>
                                   <div className="space-y-3 text-sm">
                                     <div>
-                                      <p className="text-[var(--color-text-muted)] mb-0.5">Treatment</p>
-                                      <p className="font-medium text-lg">{apt.treatment}</p>
+                                      <p className="text-[var(--color-text-muted)] mb-0.5">Patient</p>
+                                      <p className="font-medium text-lg">{apt.patient_name}</p>
+                                      <p className="text-xs text-[var(--color-text-muted)]">{apt.patient_email}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[var(--color-text-muted)] mb-0.5">Service</p>
+                                      <p className="font-medium">{apt.service_name || "General Consultation"}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <Calendar className="w-4 h-4 text-[var(--color-text-muted)]" />
@@ -507,17 +708,13 @@ export default function OwnerAppointments() {
                                       </div>
                                     </div>
                                     <div>
-                                      <p className="text-[var(--color-text-muted)] mb-0.5">Duration</p>
-                                      <p className="font-medium">{apt.duration}</p>
-                                    </div>
-                                    <div>
                                       <p className="text-[var(--color-text-muted)] mb-0.5">Assigned Dentist</p>
-                                      <p className="font-medium">{apt.dentist}</p>
+                                      <p className="font-medium">{apt.dentist_name || "Not Assigned"}</p>
                                     </div>
                                     <div>
                                       <p className="text-[var(--color-text-muted)] mb-0.5">Status</p>
                                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
-                                        {apt.status}
+                                        {formatStatus(apt.status)}
                                       </span>
                                     </div>
                                   </div>
@@ -527,17 +724,23 @@ export default function OwnerAppointments() {
                                 <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
                                   <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
-                                    Additional Information
+                                    Notes & Information
                                   </h4>
                                   <div className="space-y-4 text-sm">
                                     <div>
-                                      <p className="text-[var(--color-text-muted)] mb-2 font-medium">Cost</p>
-                                      <p className="text-2xl font-bold text-[var(--color-primary)]">₱{apt.cost.toLocaleString()}</p>
+                                      <p className="text-[var(--color-text-muted)] mb-2 font-medium">Notes</p>
+                                      <p className="text-sm leading-relaxed">{apt.notes || "No notes added"}</p>
                                     </div>
                                     <div className="pt-3 border-t border-[var(--color-border)]">
-                                      <p className="text-[var(--color-text-muted)] mb-2 font-medium">Notes</p>
-                                      <p className="text-sm leading-relaxed">{apt.notes}</p>
+                                      <p className="text-[var(--color-text-muted)] text-xs mb-1">Created</p>
+                                      <p className="text-sm">{new Date(apt.created_at).toLocaleString()}</p>
                                     </div>
+                                    {apt.updated_at !== apt.created_at && (
+                                      <div>
+                                        <p className="text-[var(--color-text-muted)] text-xs mb-1">Last Updated</p>
+                                        <p className="text-sm">{new Date(apt.updated_at).toLocaleString()}</p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -568,54 +771,89 @@ export default function OwnerAppointments() {
               </button>
             </div>
 
-            <form className="p-6 space-y-4">
+            <form onSubmit={handleAddAppointment} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Patient</label>
-                <input
-                  type="text"
-                  placeholder="Search and select patient..."
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Patient *</label>
+                <select
+                  value={selectedPatientId || ""}
+                  onChange={(e) => setSelectedPatientId(Number(e.target.value))}
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
+                  required
+                >
+                  <option value="">Select a patient...</option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.first_name} {patient.last_name} - {patient.email}
+                    </option>
+                  ))}
+                </select>
+                {patients.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-1">No patients registered yet. Please add patients first.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Date</label>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Date *</label>
                   <input
                     type="date"
+                    value={newAppointment.date}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Time</label>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Time *</label>
                   <input
                     type="time"
+                    value={newAppointment.time}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Treatment</label>
-                <select className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
-                  <option>Teeth Cleaning</option>
-                  <option>Root Canal</option>
-                  <option>Dental Check-up</option>
-                  <option>Tooth Extraction</option>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Service (Optional)</label>
+                <select
+                  value={newAppointment.service}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, service: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="">Select a service...</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Dentist</label>
-                <select className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
-                  <option>Dr. Sarah Johnson</option>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Dentist (Optional)</label>
+                <select
+                  value={newAppointment.dentist}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, dentist: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="">Select a dentist...</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.first_name.startsWith('Dr.') ? '' : 'Dr. '}{s.first_name} {s.last_name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Notes</label>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Notes (Optional)</label>
                 <textarea
+                  value={newAppointment.notes}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, notes: e.target.value })}
                   rows={3}
+                  placeholder="Add any special instructions or notes..."
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>
@@ -632,7 +870,7 @@ export default function OwnerAppointments() {
                   type="submit"
                   className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
                 >
-                  Add Appointment
+                  Create Appointment
                 </button>
               </div>
             </form>

@@ -1,19 +1,54 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Calendar, FileText, Clock, AlertCircle } from "lucide-react"
 import { useAuth } from "@/lib/auth"
+import { api } from "@/lib/api"
+import Link from "next/link"
+
+interface Appointment {
+  id: number
+  date: string
+  time: string
+  dentist_name: string
+  service_name: string | null
+  status: string
+}
 
 export default function PatientDashboard() {
-  const { user } = useAuth()
+  const { user, token } = useAuth()
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   
-  // No sample data - will be filled with real data
-  const upcomingAppointments: Array<{
-    id: number
-    date: string
-    time: string
-    service: string
-    dentist: string
-  }> = []
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!token) return
+      
+      try {
+        setIsLoading(true)
+        const data = await api.getAppointments(token)
+        
+        // Filter upcoming appointments (today or future, not cancelled)
+        const today = new Date().toISOString().split('T')[0]
+        const upcoming = data
+          .filter((apt: Appointment) => apt.date >= today && apt.status !== 'cancelled')
+          .sort((a: Appointment, b: Appointment) => {
+            const dateCompare = a.date.localeCompare(b.date)
+            if (dateCompare !== 0) return dateCompare
+            return a.time.localeCompare(b.time)
+          })
+          .slice(0, 5) // Show next 5 appointments
+        
+        setUpcomingAppointments(upcoming)
+      } catch (error) {
+        console.error("Error fetching appointments:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchAppointments()
+  }, [token])
 
   const treatmentPlans: Array<{
     id: number
@@ -21,6 +56,19 @@ export default function PatientDashboard() {
     status: string
     progress: number
   }> = []
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const formatTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
+  }
 
   return (
     <div className="space-y-6">
@@ -39,7 +87,7 @@ export default function PatientDashboard() {
               <Calendar className="w-6 h-6 text-blue-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">0</p>
+          <p className="text-2xl font-bold text-[var(--color-text)] mb-1">{upcomingAppointments.length}</p>
           <p className="text-sm text-[var(--color-text-muted)]">Upcoming Appointments</p>
         </div>
 
@@ -105,26 +153,48 @@ export default function PatientDashboard() {
 
       {/* Upcoming Appointments */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-        <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-4">Upcoming Appointments</h2>
-        {upcomingAppointments.length > 0 ? (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-[var(--color-primary)]">Upcoming Appointments</h2>
+          <Link href="/patient/appointments" className="text-sm text-[var(--color-primary)] hover:underline">
+            View All
+          </Link>
+        </div>
+        {isLoading ? (
+          <p className="text-center py-8 text-[var(--color-text-muted)]">Loading appointments...</p>
+        ) : upcomingAppointments.length > 0 ? (
           <div className="space-y-4">
             {upcomingAppointments.map((appointment) => (
               <div
                 key={appointment.id}
-                className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg"
+                className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
                     <Calendar className="w-6 h-6 text-[var(--color-accent)]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[var(--color-text)]">{appointment.service}</h3>
-                    <p className="text-sm text-[var(--color-text-muted)]">{appointment.dentist}</p>
+                    <h3 className="font-semibold text-[var(--color-text)]">
+                      {appointment.service_name || "General Consultation"}
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-muted)]">{appointment.dentist_name}</p>
+                    <span
+                      className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        appointment.status === "confirmed"
+                          ? "bg-green-100 text-green-700"
+                          : appointment.status === "pending"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : appointment.status === "completed"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {appointment.status}
+                    </span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-[var(--color-text)]">{appointment.date}</p>
-                  <p className="text-sm text-[var(--color-text-muted)]">{appointment.time}</p>
+                  <p className="font-medium text-[var(--color-text)]">{formatDate(appointment.date)}</p>
+                  <p className="text-sm text-[var(--color-text-muted)]">{formatTime(appointment.time)}</p>
                 </div>
               </div>
             ))}

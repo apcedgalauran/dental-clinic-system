@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Pencil, Trash2, X } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { api } from "@/lib/api"
@@ -18,48 +18,41 @@ interface Service {
 
 export default function ServicesPage() {
   const { token } = useAuth()
-  const [services, setServices] = useState<Service[]>([
-    {
-      id: 1,
-      name: "Teeth Whitening",
-      description: "Professional teeth whitening treatment for a brighter smile",
-      category: "preventive",
-      image: "/teeth-whitening.png",
-      created_at: "2024-01-15",
-    },
-    {
-      id: 2,
-      name: "Dental Braces",
-      description: "Orthodontic treatment to straighten teeth and correct bite issues",
-      category: "orthodontics",
-      image: "/dental-braces.jpg",
-      created_at: "2024-01-10",
-    },
-    {
-      id: 3,
-      name: "Root Canal",
-      description: "Treatment to repair and save badly damaged or infected teeth",
-      category: "restorations",
-      image: "/root-canal.jpg",
-      created_at: "2024-01-05",
-    },
-  ])
+  const [services, setServices] = useState<Service[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    category: "all-services",
+    category: "all",
     image: null as File | null,
   })
   const [imagePreview, setImagePreview] = useState("")
 
+  // Fetch services on load
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setIsLoading(true)
+        const data = await api.getServices()
+        setServices(data)
+      } catch (error) {
+        console.error("Failed to fetch services:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchServices()
+  }, [])
+
   const categories = [
-    { value: "all-services", label: "All Services" },
+    { value: "all", label: "All Services" },
     { value: "orthodontics", label: "Orthodontics" },
     { value: "restorations", label: "Restorations" },
-    { value: "x-rays", label: "X-Rays" },
-    { value: "oral-surgery", label: "Oral Surgery" },
+    { value: "xrays", label: "X-Rays" },
+    { value: "oral_surgery", label: "Oral Surgery" },
     { value: "preventive", label: "Preventive" },
   ]
 
@@ -91,10 +84,8 @@ export default function ServicesPage() {
 
       if (editingService) {
         // Update existing service
-        await api.updateService(editingService.id, data, token)
-        setServices(
-          services.map((s) => (s.id === editingService.id ? { ...s, ...formData, image: imagePreview || s.image } : s)),
-        )
+        const updatedService = await api.updateService(editingService.id, data, token)
+        setServices(services.map((s) => (s.id === editingService.id ? updatedService : s)))
       } else {
         // Create new service
         const newService = await api.createService(data, token)
@@ -102,12 +93,13 @@ export default function ServicesPage() {
       }
 
       // Reset form
-      setFormData({ name: "", description: "", category: "all-services", image: null })
+      setFormData({ name: "", description: "", category: "all", image: null })
       setImagePreview("")
       setEditingService(null)
       setIsModalOpen(false)
     } catch (error) {
       console.error("Failed to save service:", error)
+      alert("Failed to save service. Please try again.")
     }
   }
 
@@ -139,8 +131,18 @@ export default function ServicesPage() {
   const closeModal = () => {
     setIsModalOpen(false)
     setEditingService(null)
-    setFormData({ name: "", description: "", category: "all-services", image: null })
+    setFormData({ name: "", description: "", category: "all", image: null })
     setImagePreview("")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -159,8 +161,18 @@ export default function ServicesPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {services.map((service) => (
+      {services.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-[var(--color-border)]">
+          <p className="text-[var(--color-text-muted)] text-lg mb-4">No services yet</p>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
+          >
+            Add Your First Service
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{services.map((service) => (
           <div
             key={service.id}
             className="bg-white rounded-xl shadow-sm border border-[var(--color-border)] overflow-hidden"
@@ -195,7 +207,8 @@ export default function ServicesPage() {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Add/Edit Service Modal */}
       {isModalOpen && (

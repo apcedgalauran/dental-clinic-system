@@ -30,11 +30,8 @@ export default function OwnerBilling() {
   const [patientSearch, setPatientSearch] = useState("")
   const [selectedPatient, setSelectedPatient] = useState("")
 
-  const [billings, setBillings] = useState<Billing[]>([
-    { id: 1, patient: "John Doe", amount: 15000, date: "2025-01-15", status: "pending" },
-    { id: 2, patient: "Jane Smith", amount: 8000, date: "2025-01-10", status: "paid" },
-    { id: 3, patient: "Mike Johnson", amount: 2500, date: "2025-01-08", status: "paid" },
-  ])
+  // Remove sample data - ready for testing
+  const [billings, setBillings] = useState<Billing[]>([])
 
   const filteredBillings = statusFilter === "all" 
     ? billings 

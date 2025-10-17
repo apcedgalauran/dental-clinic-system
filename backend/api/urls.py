@@ -26,5 +26,6 @@ urlpatterns = [
     path('login/', login, name='login'),
     path('logout/', logout, name='logout'),
     path('me/', current_user, name='current_user'),
+    path('profile/', current_user, name='profile'),  # Alias for /me/
     path('analytics/', analytics, name='analytics'),
 ]

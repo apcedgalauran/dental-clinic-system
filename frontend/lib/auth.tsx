@@ -17,15 +17,26 @@ interface AuthContextType {
   token: string | null
   login: (username: string, password: string) => Promise<void>
   logout: () => void
+  setUser: (user: User | null) => void
   isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUserState] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Wrapper for setUser that also updates localStorage
+  const setUser = (newUser: User | null) => {
+    setUserState(newUser)
+    if (newUser) {
+      localStorage.setItem("user", JSON.stringify(newUser))
+    } else {
+      localStorage.removeItem("user")
+    }
+  }
 
   useEffect(() => {
     // Check for stored auth data
@@ -34,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (storedToken && storedUser) {
       setToken(storedToken)
-      setUser(JSON.parse(storedUser))
+      setUserState(JSON.parse(storedUser))
     }
     setIsLoading(false)
   }, [])
@@ -44,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(response.token)
     setUser(response.user)
     localStorage.setItem("token", response.token)
-    localStorage.setItem("user", JSON.stringify(response.user))
   }
 
   const logout = () => {
@@ -57,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("user")
   }
 
-  return <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, token, login, logout, setUser, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

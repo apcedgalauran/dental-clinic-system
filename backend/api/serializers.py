@@ -15,7 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'user_type', 
-                  'phone', 'address', 'birthday', 'age', 'profile_picture', 
+                  'role', 'phone', 'address', 'birthday', 'age', 'profile_picture', 
                   'is_active_patient', 'created_at', 'last_appointment_date']
         extra_kwargs = {'password': {'write_only': True}}
 
@@ -40,6 +40,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     patient_email = serializers.CharField(source='patient.email', read_only=True)
     dentist_name = serializers.CharField(source='dentist.get_full_name', read_only=True)
     service_name = serializers.CharField(source='service.name', read_only=True)
+    reschedule_service_name = serializers.CharField(source='reschedule_service.name', read_only=True)
+    reschedule_dentist_name = serializers.CharField(source='reschedule_dentist.get_full_name', read_only=True)
 
     class Meta:
         model = Appointment

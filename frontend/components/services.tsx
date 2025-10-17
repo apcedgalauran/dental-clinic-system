@@ -1,32 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ChevronRight } from "lucide-react"
+import { api } from "@/lib/api"
 
-const initialServices = [
-  {
-    id: 1,
-    name: "Teeth Cleaning",
-    category: "preventive",
-    description: "Professional cleaning to maintain oral health and prevent cavities.",
-    image: "/dental-teeth-cleaning.jpg",
-  },
-  {
-    id: 2,
-    name: "Dental Braces",
-    category: "orthodontics",
-    description: "Straighten your teeth with our modern orthodontic solutions.",
-    image: "/dental-braces-orthodontics.jpg",
-  },
-  {
-    id: 3,
-    name: "Tooth Extraction",
-    category: "oral_surgery",
-    description: "Safe and painless tooth removal procedures.",
-    image: "/dental-tooth-extraction.jpg",
-  },
-]
+interface Service {
+  id: number
+  name: string
+  category: string
+  description: string
+  image: string
+}
 
 const categories = [
   { id: "all", label: "All Services" },
@@ -38,10 +23,34 @@ const categories = [
 ]
 
 export default function Services() {
+  const [services, setServices] = useState<Service[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState("all")
 
-  const displayedServices = showAll ? initialServices : initialServices.slice(0, 3)
+  // Fetch services from API
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setIsLoading(true)
+        const data = await api.getServices()
+        setServices(data)
+      } catch (error) {
+        console.error("Failed to fetch services:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchServices()
+  }, [])
+
+  // Filter services by category
+  const filteredServices = selectedCategory === "all" 
+    ? services 
+    : services.filter(service => service.category === selectedCategory)
+
+  const displayedServices = showAll ? filteredServices : filteredServices.slice(0, 3)
 
   return (
     <section id="services" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
@@ -71,32 +80,53 @@ export default function Services() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
-          {displayedServices.map((service) => (
-            <div
-              key={service.id}
-              className="bg-white border border-[var(--color-border)] rounded-xl overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              <div className="relative h-48">
-                <Image src={service.image || "/placeholder.svg"} alt={service.name} fill className="object-cover" />
-              </div>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-[var(--color-primary)] mb-2">{service.name}</h3>
-                <p className="text-[var(--color-text-muted)] leading-relaxed">{service.description}</p>
-              </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
+          </div>
+        ) : services.length === 0 ? (
+          <div className="text-center py-20 bg-[var(--color-background)] rounded-xl">
+            <p className="text-[var(--color-text-muted)] text-lg">No services available yet.</p>
+            <p className="text-[var(--color-text-muted)] text-sm mt-2">Services will appear here once added by the clinic.</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+              {displayedServices.map((service) => (
+                <div
+                  key={service.id}
+                  className="bg-white border border-[var(--color-border)] rounded-xl overflow-hidden hover:shadow-lg transition-shadow"
+                >
+                  <div className="relative h-48">
+                    <Image 
+                      src={service.image || "/placeholder.svg"} 
+                      alt={service.name} 
+                      fill 
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-[var(--color-primary)] mb-2">{service.name}</h3>
+                    <p className="text-[var(--color-text-muted)] leading-relaxed">{service.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="text-center">
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--color-accent)] text-white rounded-lg hover:bg-[var(--color-accent-dark)] transition-colors font-medium"
-          >
-            {showAll ? "Show Less" : "More Services"}
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
+            {filteredServices.length > 3 && (
+              <div className="text-center">
+                <button
+                  onClick={() => setShowAll(!showAll)}
+                  className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--color-accent)] text-white rounded-lg hover:bg-[var(--color-accent-dark)] transition-colors font-medium"
+                >
+                  {showAll ? "Show Less" : "More Services"}
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </section>
   )

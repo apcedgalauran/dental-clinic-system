@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.db.models import Sum, Count, Q
+from django.utils import timezone
 from datetime import date, timedelta
 from .models import (
     User, Service, Appointment, ToothChart, DentalRecord,
@@ -73,15 +74,34 @@ def logout(request):
     return Response({'message': 'Logged out successfully'})
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH', 'PUT'])
 def current_user(request):
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+    if request.method == 'GET':
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+    
+    elif request.method in ['PATCH', 'PUT']:
+        # Update user profile
+        user = request.user
+        serializer = UserSerializer(user, data=request.data, partial=(request.method == 'PATCH'))
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    def perform_create(self, serializer):
+        # Hash password when creating user
+        user = serializer.save()
+        password = self.request.data.get('password')
+        if password:
+            user.set_password(password)
+            user.save()
 
     @action(detail=False, methods=['get'])
     def patients(self, request):
@@ -143,6 +163,133 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     def today(self, request):
         today_appointments = Appointment.objects.filter(date=date.today())
         serializer = self.get_serializer(today_appointments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def approve_reschedule(self, request, pk=None):
+        """Approve a reschedule request - move reschedule fields to main fields"""
+        appointment = self.get_object()
+        
+        if appointment.status != 'reschedule_requested':
+            return Response(
+                {'error': 'This appointment is not pending reschedule approval'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Move reschedule data to main appointment fields
+        appointment.date = appointment.reschedule_date
+        appointment.time = appointment.reschedule_time
+        if appointment.reschedule_service:
+            appointment.service = appointment.reschedule_service
+        if appointment.reschedule_dentist:
+            appointment.dentist = appointment.reschedule_dentist
+        if appointment.reschedule_notes:
+            appointment.notes = appointment.reschedule_notes
+        
+        # Clear reschedule fields
+        appointment.reschedule_date = None
+        appointment.reschedule_time = None
+        appointment.reschedule_service = None
+        appointment.reschedule_dentist = None
+        appointment.reschedule_notes = ''
+        
+        # Update status to confirmed
+        appointment.status = 'confirmed'
+        appointment.save()
+        
+        serializer = self.get_serializer(appointment)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def reject_reschedule(self, request, pk=None):
+        """Reject a reschedule request - clear reschedule fields and revert to confirmed"""
+        appointment = self.get_object()
+        
+        if appointment.status != 'reschedule_requested':
+            return Response(
+                {'error': 'This appointment is not pending reschedule approval'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Clear reschedule fields
+        appointment.reschedule_date = None
+        appointment.reschedule_time = None
+        appointment.reschedule_service = None
+        appointment.reschedule_dentist = None
+        appointment.reschedule_notes = ''
+        
+        # Revert status to confirmed
+        appointment.status = 'confirmed'
+        appointment.save()
+        
+        serializer = self.get_serializer(appointment)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def request_cancel(self, request, pk=None):
+        """Patient requests to cancel an appointment"""
+        appointment = self.get_object()
+        
+        # Check if user is the patient
+        if request.user != appointment.patient:
+            return Response(
+                {'error': 'Only the patient can request cancellation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if appointment.status in ['cancelled', 'completed']:
+            return Response(
+                {'error': 'Cannot cancel this appointment'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set cancel request
+        appointment.status = 'cancel_requested'
+        appointment.cancel_reason = request.data.get('reason', '')
+        appointment.cancel_requested_at = timezone.now()
+        appointment.save()
+        
+        serializer = self.get_serializer(appointment)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def approve_cancel(self, request, pk=None):
+        """Staff/Owner approves cancel request and deletes the appointment"""
+        appointment = self.get_object()
+        
+        if appointment.status != 'cancel_requested':
+            return Response(
+                {'error': 'This appointment is not pending cancellation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Delete the appointment instead of marking as cancelled
+        appointment_id = appointment.id
+        appointment.delete()
+        
+        return Response(
+            {'message': 'Appointment cancelled and deleted successfully', 'id': appointment_id},
+            status=status.HTTP_200_OK
+        )
+    
+    @action(detail=True, methods=['post'])
+    def reject_cancel(self, request, pk=None):
+        """Staff/Owner rejects cancel request"""
+        appointment = self.get_object()
+        
+        if appointment.status != 'cancel_requested':
+            return Response(
+                {'error': 'This appointment is not pending cancellation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Reject cancellation - revert to confirmed
+        appointment.status = 'confirmed'
+        appointment.cancel_reason = ''
+        appointment.cancel_requested_at = None
+        appointment.save()
+        
+        serializer = self.get_serializer(appointment)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])

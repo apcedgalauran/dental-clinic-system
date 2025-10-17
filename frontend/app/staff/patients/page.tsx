@@ -18,9 +18,11 @@ import {
   Calendar,
   FileText,
   DollarSign,
-  Camera
+  Camera,
+  Upload
 } from "lucide-react"
 import TeethImageUpload from "@/components/teeth-image-upload"
+import DocumentUpload from "@/components/document-upload"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -58,6 +60,7 @@ export default function StaffPatients() {
   const [editingRow, setEditingRow] = useState<number | null>(null)
   const [editedData, setEditedData] = useState<Partial<Patient>>({})
   const [showImageUpload, setShowImageUpload] = useState(false)
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -120,75 +123,8 @@ export default function StaffPatients() {
     fetchPatients()
   }, [token])
 
-  const mockPatients: Patient[] = [
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john.doe@email.com",
-      phone: "+63 912 345 6789",
-      lastVisit: "2025-01-10",
-      status: "active",
-      address: "123 Main St, Manila, Philippines",
-      dateOfBirth: "1990-05-15",
-      age: 34,
-      gender: "Male",
-      medicalHistory: ["Diabetes Type 2", "High Blood Pressure"],
-      allergies: ["Penicillin", "Latex"],
-      upcomingAppointments: [
-        { date: "2025-01-20", time: "10:00 AM", type: "Dental Cleaning", doctor: "Dr. Smith" },
-        { date: "2025-02-05", time: "2:00 PM", type: "Check-up", doctor: "Dr. Johnson" },
-      ],
-      pastAppointments: 12,
-      totalBilled: 45000,
-      balance: 5000,
-      notes: "Patient prefers morning appointments. Sensitive to cold.",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane.smith@email.com",
-      phone: "+63 923 456 7890",
-      lastVisit: "2025-01-08",
-      status: "active",
-      address: "456 Oak Ave, Quezon City, Philippines",
-      dateOfBirth: "1985-09-22",
-      age: 39,
-      gender: "Female",
-      medicalHistory: ["None"],
-      allergies: ["None"],
-      upcomingAppointments: [
-        { date: "2025-01-25", time: "3:00 PM", type: "Root Canal", doctor: "Dr. Brown" },
-      ],
-      pastAppointments: 8,
-      totalBilled: 32000,
-      balance: 0,
-      notes: "Regular patient, always on time.",
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike.j@email.com",
-      phone: "+63 934 567 8901",
-      lastVisit: "2024-11-20",
-      status: "inactive",
-      address: "789 Pine Rd, Makati, Philippines",
-      dateOfBirth: "1978-03-10",
-      age: 46,
-      gender: "Male",
-      medicalHistory: ["Asthma"],
-      allergies: ["Aspirin"],
-      upcomingAppointments: [],
-      pastAppointments: 15,
-      totalBilled: 78000,
-      balance: 12000,
-      notes: "Needs to schedule follow-up appointment.",
-    },
-  ]
-
-  // Combine real patients with mock data for display
-  const allPatients = [...patients, ...mockPatients]
-
-  const filteredPatients = allPatients.filter((patient) => {
+  // Remove mock patients - only use real patient data from API
+  const filteredPatients = patients.filter((patient) => {
     const matchesSearch =
       patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -238,6 +174,12 @@ export default function StaffPatients() {
     e.stopPropagation()
     setSelectedPatient(patient)
     setShowImageUpload(true)
+  }
+
+  const handleUploadDocument = (patient: Patient, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedPatient(patient)
+    setShowDocumentUpload(true)
   }
 
   const handleAddPatient = async (e: React.FormEvent) => {
@@ -464,7 +406,7 @@ export default function StaffPatients() {
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Full Name</label>
+                                  <label className="block text-sm font-medium mb-1.5">Full Name *</label>
                                   <input
                                     type="text"
                                     value={editedData.name || ""}
@@ -473,61 +415,65 @@ export default function StaffPatients() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Email</label>
+                                  <label className="block text-sm font-medium mb-1.5">Email (Read-only)</label>
                                   <input
                                     type="email"
                                     value={editedData.email || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    title="Email cannot be edited"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Phone</label>
+                                  <label className="block text-sm font-medium mb-1.5">Phone (Read-only)</label>
                                   <input
                                     type="tel"
                                     value={editedData.phone || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    title="Phone cannot be edited"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Address</label>
+                                  <label className="block text-sm font-medium mb-1.5">Address (Read-only)</label>
                                   <input
                                     type="text"
                                     value={editedData.address || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, address: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    title="Address cannot be edited"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Date of Birth</label>
+                                  <label className="block text-sm font-medium mb-1.5">Date of Birth (Read-only)</label>
                                   <input
                                     type="date"
                                     value={editedData.dateOfBirth || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, dateOfBirth: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    title="Date of Birth cannot be edited"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium mb-1.5">Gender</label>
-                                  <select
+                                  <label className="block text-sm font-medium mb-1.5">Gender (Read-only)</label>
+                                  <input
+                                    type="text"
                                     value={editedData.gender || ""}
-                                    onChange={(e) => setEditedData({ ...editedData, gender: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  >
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
-                                  </select>
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    title="Gender cannot be edited"
+                                  />
                                 </div>
                                 <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium mb-1.5">Notes</label>
+                                  <label className="block text-sm font-medium mb-1.5">Notes *</label>
                                   <textarea
                                     value={editedData.notes || ""}
                                     onChange={(e) => setEditedData({ ...editedData, notes: e.target.value })}
                                     rows={3}
                                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    placeholder="Add notes about this patient..."
                                   />
+                                  <p className="text-xs text-gray-500 mt-1">* Only Name and Notes can be edited</p>
                                 </div>
                               </div>
                             </div>
@@ -538,13 +484,22 @@ export default function StaffPatients() {
                                 <h3 className="text-xl font-bold text-[var(--color-primary)]">
                                   Patient Details
                                 </h3>
-                                <button
-                                  onClick={(e) => handleUploadImage(patient, e)}
-                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                  <Camera className="w-4 h-4" />
-                                  Upload Teeth Image
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={(e) => handleUploadImage(patient, e)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                  >
+                                    <Camera className="w-4 h-4" />
+                                    Upload Teeth Image
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleUploadDocument(patient, e)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                  >
+                                    <Upload className="w-4 h-4" />
+                                    Upload X-Ray/Document
+                                  </button>
+                                </div>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -830,6 +785,22 @@ export default function StaffPatients() {
           onSuccess={() => {
             // Refresh patient data or show success message
             setShowImageUpload(false)
+            setSelectedPatient(null)
+          }}
+        />
+      )}
+
+      {/* Document Upload Modal */}
+      {showDocumentUpload && selectedPatient && (
+        <DocumentUpload
+          patientId={selectedPatient.id}
+          patientName={selectedPatient.name}
+          onClose={() => {
+            setShowDocumentUpload(false)
+            setSelectedPatient(null)
+          }}
+          onUploadSuccess={() => {
+            setShowDocumentUpload(false)
             setSelectedPatient(null)
           }}
         />

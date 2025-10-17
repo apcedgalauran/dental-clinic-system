@@ -6,38 +6,8 @@ import { Plus, AlertTriangle } from "lucide-react"
 export default function OwnerInventory() {
   const [showAddModal, setShowAddModal] = useState(false)
 
-  const inventory = [
-    {
-      id: 1,
-      name: "Dental Gloves",
-      category: "Supplies",
-      quantity: 500,
-      minStock: 100,
-      supplier: "MedSupply Co.",
-      cost: 1500,
-      lastUpdated: "2025-01-15",
-    },
-    {
-      id: 2,
-      name: "Anesthetic",
-      category: "Medicine",
-      quantity: 45,
-      minStock: 50,
-      supplier: "PharmaCare",
-      cost: 8000,
-      lastUpdated: "2025-01-10",
-    },
-    {
-      id: 3,
-      name: "Dental Mirrors",
-      category: "Instruments",
-      quantity: 150,
-      minStock: 50,
-      supplier: "DentalTools Inc.",
-      cost: 3000,
-      lastUpdated: "2025-01-12",
-    },
-  ]
+  // Remove sample data - ready for testing add/edit/delete
+  const inventory: any[] = []
 
   return (
     <div className="space-y-6">
@@ -56,13 +26,17 @@ export default function OwnerInventory() {
       </div>
 
       {/* Low Stock Alert */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="font-medium text-amber-900">Low Stock Alert</p>
-          <p className="text-sm text-amber-700">1 item is below minimum stock level</p>
+      {inventory.length > 0 && inventory.some((item: any) => item.quantity <= item.minStock) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-amber-900">Low Stock Alert</p>
+            <p className="text-sm text-amber-700">
+              {inventory.filter((item: any) => item.quantity <= item.minStock).length} item(s) below minimum stock level
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Inventory Table */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
@@ -80,27 +54,36 @@ export default function OwnerInventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {inventory.map((item) => (
-                <tr key={item.id} className="hover:bg-[var(--color-background)] transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-[var(--color-text)]">{item.name}</p>
+              {inventory.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <p className="text-lg font-medium text-[var(--color-text)] mb-2">No Inventory Items</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">Click "Add Item" to start managing your inventory</p>
                   </td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.category}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={
-                        item.quantity <= item.minStock ? "text-red-600 font-medium" : "text-[var(--color-text-muted)]"
-                      }
-                    >
-                      {item.quantity}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.minStock}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.supplier}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.cost.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.lastUpdated}</td>
                 </tr>
-              ))}
+              ) : (
+                inventory.map((item) => (
+                  <tr key={item.id} className="hover:bg-[var(--color-background)] transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-[var(--color-text)]">{item.name}</p>
+                    </td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.category}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={
+                          item.quantity <= item.minStock ? "text-red-600 font-medium" : "text-[var(--color-text-muted)]"
+                        }
+                      >
+                        {item.quantity}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.minStock}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.supplier}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.cost.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.lastUpdated}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
