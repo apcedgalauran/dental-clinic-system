@@ -64,7 +64,7 @@ export default function NotificationBell() {
       if (!token) return
       
       const data = await api.getAppointmentNotificationUnreadCount(token)
-      setUnreadCount(data.count || 0)
+      setUnreadCount(data.unread_count || 0)
     } catch (error) {
       console.error('Failed to fetch unread count:', error)
     }
