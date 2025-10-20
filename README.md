@@ -2,6 +2,19 @@
 
 A comprehensive dental clinic management system built with **Next.js** (frontend) and **Django** (backend).
 
+## 🎉 **NEW: Complete Appointment Lifecycle System!**
+
+> 📚 **[See Complete Documentation →](./README_COMPLETE_SYSTEM.md)**
+
+### Latest Features (October 2025)
+- ✅ **Auto-mark missed appointments** - Automatic detection when time passes
+- ✅ **Mark as Complete button** - One-click completion with dental record creation
+- ✅ **Mark as Missed button** - Manual no-show marking
+- ✅ **Auto-create dental records** - Treatment records generated automatically
+- ✅ **Full integration** - Completed appointments flow to dental records seamlessly
+
+---
+
 ## ✨ Features
 
 ### 👥 User Roles
@@ -12,7 +25,10 @@ A comprehensive dental clinic management system built with **Next.js** (frontend
 ### 🎯 Key Features
 - ✅ **Interactive Tooth Chart** - Anatomical curved arch design with clickable teeth
 - ✅ **Expandable Patient Records** - Click to view/edit full medical history
-- ✅ **Appointment Management** - Full CRUD with status tracking
+- ✅ **Complete Appointment Lifecycle** - Book → Complete → Dental Record (FULL AUTOMATION!)
+- ✅ **Auto-mark Missed** - System automatically detects and marks missed appointments
+- ✅ **Reschedule & Cancel Requests** - Patient request system with staff approval workflow
+- ✅ **Real-Time Notifications** - Staff and owner receive instant notifications for all appointment actions
 - ✅ **AI Chatbot** - Patient support assistant
 - ✅ **Email Authentication** - Secure token-based login
 - ✅ **Responsive Design** - Works on all devices
@@ -132,6 +148,12 @@ For detailed information, please refer to the documentation in the `docs/` folde
 - **[Database Setup](docs/DATABASE_SETUP.md)** - Database configuration and setup
 - **[User Guide](docs/USER_GUIDE.md)** - How to use the system
 - **[Project Details](docs/README.md)** - Detailed project information
+
+### Feature Documentation
+
+- **[Reschedule & Cancel System](RESCHEDULE_CANCEL_COMPLETE.md)** - Complete implementation guide for appointment modification requests
+- **[Testing Guide](TESTING_RESCHEDULE_CANCEL.md)** - Step-by-step testing scenarios for reschedule/cancel functionality
+- **[Implementation Summary](IMPLEMENTATION_COMPLETE_RESCHEDULE_CANCEL.md)** - Technical overview and handoff document
 
 ## Technology Stack
 

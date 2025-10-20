@@ -13,11 +13,7 @@ import {
   Trash2,
   Calendar,
   Clock,
-  User,
-  FileText,
-  Phone,
-  Mail,
-  MapPin
+  FileText
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
@@ -142,13 +138,33 @@ export default function OwnerAppointments() {
       return
     }
 
+    // Check for time slot conflicts (1-hour blocking)
+    const appointmentDateTime = new Date(`${newAppointment.date}T${newAppointment.time}`)
+    const appointmentHour = appointmentDateTime.getHours()
+    
+    const hasConflict = appointments.some(apt => {
+      if (apt.date === newAppointment.date && apt.status !== 'cancelled') {
+        const existingDateTime = new Date(`${apt.date}T${apt.time}`)
+        const existingHour = existingDateTime.getHours()
+        
+        // Check if appointments are within the same hour (1-hour blocking)
+        return existingHour === appointmentHour
+      }
+      return false
+    })
+
+    if (hasConflict) {
+      alert("This time slot is already booked. Please select a time at least 1 hour before or after existing appointments.")
+      return
+    }
+
     try {
       const appointmentData = {
         patient: selectedPatientId,
         date: newAppointment.date,
         time: newAppointment.time,
-        dentist: newAppointment.dentist ? parseInt(newAppointment.dentist) : null,
-        service: newAppointment.service ? parseInt(newAppointment.service) : null,
+        dentist: newAppointment.dentist ? Number.parseInt(newAppointment.dentist) : null,
+        service: newAppointment.service ? Number.parseInt(newAppointment.service) : null,
         notes: newAppointment.notes,
         status: "confirmed", // Owner/Staff create confirmed appointments
       }
@@ -182,6 +198,8 @@ export default function OwnerAppointments() {
         return "bg-red-100 text-red-700"
       case "completed":
         return "bg-blue-100 text-blue-700"
+      case "missed":
+        return "bg-yellow-100 text-yellow-800"
       case "reschedule_requested":
         return "bg-orange-100 text-orange-700"
       case "cancel_requested":
@@ -263,6 +281,38 @@ export default function OwnerAppointments() {
     }
   }
 
+  const handleMarkComplete = async (appointment: Appointment) => {
+    if (!token) return
+    
+    const treatment = prompt("Enter treatment details (optional):", "")
+    if (treatment === null) return // User cancelled
+    
+    try {
+      await api.markAppointmentComplete(appointment.id, { treatment }, token)
+      // Remove from appointments list (it's now in dental records)
+      setAppointments(appointments.filter(apt => apt.id !== appointment.id))
+      alert("Appointment marked as completed and added to dental records!")
+    } catch (error) {
+      console.error("Error marking appointment as complete:", error)
+      alert("Failed to mark appointment as complete.")
+    }
+  }
+
+  const handleMarkMissed = async (appointment: Appointment) => {
+    if (!token) return
+    
+    if (!confirm("Mark this appointment as missed?")) return
+    
+    try {
+      await api.markAppointmentMissed(appointment.id, token)
+      // Remove from appointments list
+      setAppointments(appointments.filter(apt => apt.id !== appointment.id))
+      alert("Appointment marked as missed.")
+    } catch (error) {
+      console.error("Error marking appointment as missed:", error)
+      alert("Failed to mark appointment as missed.")
+    }
+  }
 
   const handleRowClick = (appointmentId: number) => {
     if (editingRow === appointmentId) return
@@ -429,6 +479,36 @@ export default function OwnerAppointments() {
                         >
                           <Eye className="w-4 h-4 text-[var(--color-primary)]" />
                         </button>
+                        {/* Mark as Complete Button - Only for confirmed appointments */}
+                        {apt.status === "confirmed" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleMarkComplete(apt)
+                            }}
+                            className="p-2 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Mark as Completed"
+                          >
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        )}
+                        {/* Mark as Missed Button - Only for confirmed appointments */}
+                        {apt.status === "confirmed" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleMarkMissed(apt)
+                            }}
+                            className="p-2 hover:bg-yellow-50 rounded-lg transition-colors"
+                            title="Mark as Missed"
+                          >
+                            <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={(e) => handleEdit(apt, e)}
                           className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"

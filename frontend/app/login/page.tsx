@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth"
 import RegisterModal from "@/components/register-modal"
+import PasswordResetModal from "@/components/password-reset-modal"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,6 +89,15 @@ export default function LoginPage() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
               />
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordResetOpen(true)}
+                  className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
 
             <button
@@ -113,6 +124,7 @@ export default function LoginPage() {
       </div>
 
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
+      <PasswordResetModal isOpen={isPasswordResetOpen} onClose={() => setIsPasswordResetOpen(false)} />
     </div>
   )
 }

@@ -59,9 +59,15 @@ export default function OwnerDashboard() {
     role: string
   }> = []
 
-  // Get appointments for today
+  // Get appointments for today (filter out completed and missed)
   const todayStr = new Date().toISOString().split('T')[0]
-  const todayAppointments = allAppointments.filter(apt => apt.date === todayStr).sort((a, b) => a.time.localeCompare(b.time))
+  const todayAppointments = allAppointments
+    .filter(apt => 
+      apt.date === todayStr && 
+      apt.status !== 'completed' && 
+      apt.status !== 'missed'
+    )
+    .sort((a, b) => a.time.localeCompare(b.time))
 
   // Get appointments for selected date
   const selectedDateStr = selectedDate.toISOString().split('T')[0]

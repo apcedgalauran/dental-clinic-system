@@ -86,10 +86,10 @@ class Service(models.Model):
 
 class Appointment(models.Model):
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
         ('cancelled', 'Cancelled'),
         ('completed', 'Completed'),
+        ('missed', 'Missed'),
         ('reschedule_requested', 'Reschedule Requested'),
         ('cancel_requested', 'Cancel Requested'),
     )
@@ -98,7 +98,7 @@ class Appointment(models.Model):
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
     date = models.DateField()
     time = models.TimeField()
-    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='confirmed')
     notes = models.TextField(blank=True)
     
     # Reschedule request fields
@@ -269,3 +269,105 @@ class TeethImage(models.Model):
 
     def __str__(self):
         return f"Teeth Image - {self.patient.get_full_name()} - {self.uploaded_at.date()}"
+
+
+class StaffAvailability(models.Model):
+    """Weekly availability schedule for staff and owner"""
+    DAYS_OF_WEEK = (
+        (0, 'Sunday'),
+        (1, 'Monday'),
+        (2, 'Tuesday'),
+        (3, 'Wednesday'),
+        (4, 'Thursday'),
+        (5, 'Friday'),
+        (6, 'Saturday'),
+    )
+    
+    staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name='availability_schedule')
+    day_of_week = models.IntegerField(choices=DAYS_OF_WEEK)
+    is_available = models.BooleanField(default=True)
+    start_time = models.TimeField(default='09:00:00')
+    end_time = models.TimeField(default='17:00:00')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['staff', 'day_of_week']
+        ordering = ['day_of_week']
+        verbose_name = 'Staff Availability'
+        verbose_name_plural = 'Staff Availabilities'
+
+    def __str__(self):
+        available = "Available" if self.is_available else "Not Available"
+        return f"{self.staff.get_full_name()} - {self.get_day_of_week_display()} - {available}"
+
+
+class AppointmentNotification(models.Model):
+    """Notifications for staff and owner about appointment activities"""
+    NOTIFICATION_TYPES = (
+        ('new_appointment', 'New Appointment'),
+        ('reschedule_request', 'Reschedule Request'),
+        ('cancel_request', 'Cancel Request'),
+        ('appointment_cancelled', 'Appointment Cancelled'),
+    )
+    
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='appointment_notifications')
+    appointment = models.ForeignKey('Appointment', on_delete=models.CASCADE, related_name='appointment_notifications')
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Appointment Notification'
+        verbose_name_plural = 'Appointment Notifications'
+
+    def __str__(self):
+        return f"{self.recipient.get_full_name()} - {self.get_notification_type_display()}"
+
+
+# Keep old model for backward compatibility during migration
+class DentistNotification(models.Model):
+    """Notifications for dentists about new appointments"""
+    NOTIFICATION_TYPES = (
+        ('new_appointment', 'New Appointment'),
+        ('reschedule_request', 'Reschedule Request'),
+        ('cancel_request', 'Cancel Request'),
+    )
+    
+    dentist = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    appointment = models.ForeignKey('Appointment', on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Dentist Notification'
+        verbose_name_plural = 'Dentist Notifications'
+
+    def __str__(self):
+        return f"{self.dentist.get_full_name()} - {self.get_notification_type_display()}"
+
+
+class PasswordResetToken(models.Model):
+    """Password reset tokens for all users"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Password Reset Token'
+        verbose_name_plural = 'Password Reset Tokens'
+
+    def is_valid(self):
+        """Check if token is still valid"""
+        return not self.is_used and timezone.now() < self.expires_at
+
+    def __str__(self):
+        return f"Password Reset - {self.user.email} - {self.created_at.date()}"

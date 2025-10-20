@@ -7,6 +7,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, Users, Calendar, Package, CreditCard, LogOut, Menu, X, ChevronDown, User } from "lucide-react"
 import { useAuth } from "@/lib/auth"
+import NotificationBell from "@/components/notification-bell"
 
 export default function StaffLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname()
@@ -36,6 +37,7 @@ export default function StaffLayout({ children }: Readonly<{ children: React.Rea
           <img src="/logo.png" alt="Dorotheo Dental Clinic" className="h-10 w-auto object-contain" />
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           {/* Mobile Profile Dropdown */}
           <div className="relative">
             <button
@@ -63,7 +65,8 @@ export default function StaffLayout({ children }: Readonly<{ children: React.Rea
 
       {/* Top Header for Desktop */}
       <div className="hidden lg:block fixed top-0 right-0 z-30 bg-white border-b border-[var(--color-border)] px-6 py-3" style={{left: '16rem'}}>
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-4">
+          <NotificationBell />
           <div className="relative">
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}

@@ -156,6 +156,20 @@ export const api = {
     if (!response.ok) throw new Error("Failed to delete appointment")
   },
 
+  // Reschedule request endpoints
+  requestReschedule: async (id: number, data: { date: string; time: string; service?: number; dentist?: number; notes?: string }, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/request_reschedule/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error("Failed to request reschedule")
+    return response.json()
+  },
+
   approveReschedule: async (id: number, token: string) => {
     const response = await fetch(`${API_BASE_URL}/appointments/${id}/approve_reschedule/`, {
       method: "POST",
@@ -215,6 +229,32 @@ export const api = {
       },
     })
     if (!response.ok) throw new Error("Failed to reject cancellation")
+    return response.json()
+  },
+
+  // Mark appointment as complete/missed
+  markAppointmentComplete: async (id: number, data: { treatment?: string; diagnosis?: string; notes?: string }, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/mark_completed/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error("Failed to mark appointment as complete")
+    return response.json()
+  },
+
+  markAppointmentMissed: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}/mark_missed/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    if (!response.ok) throw new Error("Failed to mark appointment as missed")
     return response.json()
   },
 
@@ -419,5 +459,129 @@ export const api = {
       headers: { Authorization: `Token ${token}` },
     })
     if (!response.ok) throw new Error('Failed to delete document')
+  },
+
+  // Password Reset endpoints
+  requestPasswordReset: async (email: string) => {
+    const response = await fetch(`${API_BASE_URL}/password-reset/request/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    if (!response.ok) throw new Error('Failed to request password reset')
+    return response.json()
+  },
+
+  resetPassword: async (token: string, new_password: string) => {
+    const response = await fetch(`${API_BASE_URL}/password-reset/confirm/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password }),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to reset password')
+    }
+    return response.json()
+  },
+
+  // Staff Availability endpoints
+  getStaffAvailability: async (staffId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/staff-availability/?staff_id=${staffId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch staff availability')
+    return response.json()
+  },
+
+  updateStaffAvailability: async (staffId: number, availability: any[], token: string) => {
+    const response = await fetch(`${API_BASE_URL}/staff-availability/bulk_update/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ staff_id: staffId, availability }),
+    })
+    if (!response.ok) throw new Error('Failed to update staff availability')
+    return response.json()
+  },
+
+  getAvailableStaffByDate: async (date: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/staff-availability/by_date/?date=${date}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch available staff')
+    return response.json()
+  },
+
+  // Dentist Notification endpoints (kept for backward compatibility)
+  getNotifications: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/notifications/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch notifications')
+    return response.json()
+  },
+
+  markNotificationRead: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/notifications/${id}/mark_read/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to mark notification as read')
+    return response.json()
+  },
+
+  markAllNotificationsRead: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/notifications/mark_all_read/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to mark all notifications as read')
+    return response.json()
+  },
+
+  getUnreadNotificationCount: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/notifications/unread_count/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch unread count')
+    return response.json()
+  },
+
+  // Appointment Notification endpoints (for staff and owner)
+  getAppointmentNotifications: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointment-notifications/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch appointment notifications')
+    return response.json()
+  },
+
+  markAppointmentNotificationRead: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointment-notifications/${id}/mark_read/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to mark notification as read')
+    return response.json()
+  },
+
+  markAllAppointmentNotificationsRead: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointment-notifications/mark_all_read/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to mark all notifications as read')
+    return response.json()
+  },
+
+  getAppointmentNotificationUnreadCount: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/appointment-notifications/unread_count/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch unread count')
+    return response.json()
   },
 }

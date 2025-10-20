@@ -1,17 +1,33 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Camera } from "lucide-react"
+import AvailabilityCalendar from "@/components/availability-calendar"
+import { useAuth } from "@/lib/auth"
 
 export default function OwnerProfile() {
+  const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState({
-    firstName: "Sarah",
-    lastName: "Johnson",
-    email: "sarah.johnson@dentalclinic.com",
-    phone: "+63 912 345 6789",
-    address: "123 Medical Plaza, Makati City",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: "",
   })
+
+  // Load user data when component mounts
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.first_name || "",
+        lastName: user.last_name || "",
+        email: user.email || "",
+        phone: "",
+        address: "",
+      })
+    }
+  }, [user])
 
   return (
     <div className="space-y-6">
@@ -31,7 +47,7 @@ export default function OwnerProfile() {
         <div className="flex items-center gap-6 mb-8">
           <div className="relative">
             <div className="w-24 h-24 bg-[var(--color-primary)] rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              SJ
+              {user?.first_name?.[0]}{user?.last_name?.[0]}
             </div>
             {isEditing && (
               <button className="absolute bottom-0 right-0 w-8 h-8 bg-[var(--color-accent)] rounded-full flex items-center justify-center text-white hover:bg-[var(--color-accent-dark)] transition-colors">
@@ -40,8 +56,10 @@ export default function OwnerProfile() {
             )}
           </div>
           <div>
-            <h2 className="text-2xl font-semibold text-[var(--color-text)]">Dr. Sarah Johnson</h2>
-            <p className="text-[var(--color-text-muted)]">Dentist</p>
+            <h2 className="text-2xl font-semibold text-[var(--color-text)]">
+              Dr. {user?.first_name} {user?.last_name}
+            </h2>
+            <p className="text-[var(--color-text-muted)]">Owner</p>
           </div>
         </div>
 
@@ -118,6 +136,12 @@ export default function OwnerProfile() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Weekly Availability Schedule (Owner is also a dentist) */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-semibold text-[var(--color-text)] mb-4">My Schedule</h2>
+        <AvailabilityCalendar staffId={user?.id} />
       </div>
     </div>
   )
