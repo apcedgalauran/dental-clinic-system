@@ -4,7 +4,9 @@ from .views import (
     UserViewSet, ServiceViewSet, AppointmentViewSet, ToothChartViewSet,
     DentalRecordViewSet, DocumentViewSet, InventoryItemViewSet, BillingViewSet,
     ClinicLocationViewSet, TreatmentPlanViewSet, TeethImageViewSet,
-    register, login, logout, current_user, analytics
+    StaffAvailabilityViewSet, DentistNotificationViewSet, AppointmentNotificationViewSet,
+    register, login, logout, current_user, analytics, 
+    request_password_reset, reset_password
 )
 
 router = DefaultRouter()
@@ -19,6 +21,9 @@ router.register('billing', BillingViewSet)
 router.register('locations', ClinicLocationViewSet)
 router.register('treatment-plans', TreatmentPlanViewSet)
 router.register('teeth-images', TeethImageViewSet)
+router.register('staff-availability', StaffAvailabilityViewSet)
+router.register('notifications', DentistNotificationViewSet)
+router.register('appointment-notifications', AppointmentNotificationViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -28,4 +33,6 @@ urlpatterns = [
     path('me/', current_user, name='current_user'),
     path('profile/', current_user, name='profile'),  # Alias for /me/
     path('analytics/', analytics, name='analytics'),
+    path('password-reset/request/', request_password_reset, name='request_password_reset'),
+    path('password-reset/confirm/', reset_password, name='reset_password'),
 ]

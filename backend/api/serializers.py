@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .models import (
     User, Service, Appointment, ToothChart, DentalRecord, 
     Document, InventoryItem, Billing, ClinicLocation, 
-    TreatmentPlan, TeethImage
+    TreatmentPlan, TeethImage, StaffAvailability, DentistNotification, 
+    AppointmentNotification, PasswordResetToken
 )
 
 # Constants for repeated string literals
@@ -119,3 +120,79 @@ class TeethImageSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
+
+
+class StaffAvailabilitySerializer(serializers.ModelSerializer):
+    staff_name = serializers.CharField(source='staff.get_full_name', read_only=True)
+    day_name = serializers.CharField(source='get_day_of_week_display', read_only=True)
+
+    class Meta:
+        model = StaffAvailability
+        fields = ['id', 'staff', 'staff_name', 'day_of_week', 'day_name', 
+                  'is_available', 'start_time', 'end_time', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class DentistNotificationSerializer(serializers.ModelSerializer):
+    dentist_name = serializers.CharField(source='dentist.get_full_name', read_only=True)
+    appointment_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DentistNotification
+        fields = ['id', 'dentist', 'dentist_name', 'appointment', 'appointment_details',
+                  'notification_type', 'message', 'is_read', 'created_at']
+        read_only_fields = ['created_at']
+
+    def get_appointment_details(self, obj):
+        if obj.appointment:
+            return {
+                'id': obj.appointment.id,
+                'patient_name': obj.appointment.patient.get_full_name(),
+                'date': obj.appointment.date,
+                'time': obj.appointment.time,
+                'service': obj.appointment.service.name if obj.appointment.service else None,
+            }
+        return None
+
+
+class AppointmentNotificationSerializer(serializers.ModelSerializer):
+    recipient_name = serializers.CharField(source='recipient.get_full_name', read_only=True)
+    appointment_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AppointmentNotification
+        fields = ['id', 'recipient', 'recipient_name', 'appointment', 'appointment_details',
+                  'notification_type', 'message', 'is_read', 'created_at']
+        read_only_fields = ['created_at']
+
+    def get_appointment_details(self, obj):
+        if obj.appointment:
+            appointment_data = {
+                'id': obj.appointment.id,
+                'patient_name': obj.appointment.patient.get_full_name(),
+                'date': str(obj.appointment.date),
+                'time': str(obj.appointment.time),
+                'status': obj.appointment.status,
+                'service': obj.appointment.service.name if obj.appointment.service else None,
+            }
+            
+            # Add reschedule details if this is a reschedule request
+            if obj.notification_type == 'reschedule_request' and obj.appointment.reschedule_date:
+                appointment_data['reschedule_date'] = str(obj.appointment.reschedule_date)
+                appointment_data['reschedule_time'] = str(obj.appointment.reschedule_time)
+                appointment_data['reschedule_service'] = obj.appointment.reschedule_service.name if obj.appointment.reschedule_service else None
+                appointment_data['reschedule_dentist'] = obj.appointment.reschedule_dentist.get_full_name() if obj.appointment.reschedule_dentist else None
+            
+            # Add cancel reason if this is a cancel request
+            if obj.notification_type == 'cancel_request' and obj.appointment.cancel_reason:
+                appointment_data['cancel_reason'] = obj.appointment.cancel_reason
+            
+            return appointment_data
+        return None
+
+
+class PasswordResetTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PasswordResetToken
+        fields = ['id', 'user', 'token', 'created_at', 'expires_at', 'is_used']
+        read_only_fields = ['created_at', 'expires_at', 'is_used']

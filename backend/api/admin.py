@@ -3,7 +3,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User, Service, Appointment, ToothChart, DentalRecord,
     Document, InventoryItem, Billing, ClinicLocation,
-    TreatmentPlan, TeethImage
+    TreatmentPlan, TeethImage, StaffAvailability, 
+    DentistNotification, AppointmentNotification, PasswordResetToken
 )
 
 
@@ -93,6 +94,37 @@ class TeethImageAdmin(admin.ModelAdmin):
     ordering = ('-uploaded_at',)
     readonly_fields = ('uploaded_at',)
     date_hierarchy = 'uploaded_at'
+
+@admin.register(StaffAvailability)
+class StaffAvailabilityAdmin(admin.ModelAdmin):
+    list_display = ('staff', 'day_of_week', 'is_available', 'start_time', 'end_time')
+    list_filter = ('day_of_week', 'is_available', 'staff')
+    search_fields = ('staff__username', 'staff__first_name', 'staff__last_name')
+    ordering = ('staff', 'day_of_week')
+
+@admin.register(DentistNotification)
+class DentistNotificationAdmin(admin.ModelAdmin):
+    list_display = ('dentist', 'notification_type', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'created_at', 'dentist')
+    search_fields = ('dentist__username', 'message')
+    ordering = ('-created_at',)
+    date_hierarchy = 'created_at'
+
+@admin.register(AppointmentNotification)
+class AppointmentNotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'notification_type', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'created_at', 'recipient')
+    search_fields = ('recipient__username', 'message')
+    ordering = ('-created_at',)
+    date_hierarchy = 'created_at'
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'created_at', 'expires_at', 'is_used')
+    list_filter = ('is_used', 'created_at', 'expires_at')
+    search_fields = ('user__email', 'user__username', 'token')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at',)
 
 admin.site.site_header = "Dental Clinic Administration"
 admin.site.site_title = "Dental Clinic Admin"

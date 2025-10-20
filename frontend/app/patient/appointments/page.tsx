@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Clock, User, Plus, X, Edit, XCircle } from "lucide-react"
+import { Calendar as CalendarIcon, Clock, User, Plus, X, Edit, XCircle } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -16,7 +17,7 @@ interface Appointment {
   service_name: string | null
   date: string
   time: string
-  status: "confirmed" | "pending" | "cancelled" | "completed" | "reschedule_requested" | "cancel_requested"
+  status: "confirmed" | "cancelled" | "completed" | "missed" | "reschedule_requested" | "cancel_requested"
   notes: string
   reschedule_date: string | null
   reschedule_time: string | null
@@ -25,6 +26,7 @@ interface Appointment {
   reschedule_dentist: number | null
   reschedule_dentist_name: string | null
   reschedule_notes: string
+  cancel_reason: string
   created_at: string
   updated_at: string
 }
@@ -52,6 +54,7 @@ export default function PatientAppointments() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [staff, setStaff] = useState<Staff[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -70,6 +73,12 @@ export default function PatientAppointments() {
     service: "",
     notes: "",
   })
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+  const [rescheduleSelectedDate, setRescheduleSelectedDate] = useState<Date | undefined>(undefined)
+  const [dentistAvailability, setDentistAvailability] = useState<any[]>([])
+  const [rescheduleDentistAvailability, setRescheduleDentistAvailability] = useState<any[]>([])
+  const [availableDates, setAvailableDates] = useState<Set<string>>(new Set())
+  const [rescheduleAvailableDates, setRescheduleAvailableDates] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchData = async () => {
@@ -98,11 +107,129 @@ export default function PatientAppointments() {
     fetchData()
   }, [token])
 
+  // Fetch dentist availability when dentist is selected
+  useEffect(() => {
+    const fetchDentistAvailability = async () => {
+      if (!token || !newAppointment.dentist) {
+        setDentistAvailability([])
+        setAvailableDates(new Set())
+        return
+      }
+
+      try {
+        const availability = await api.getStaffAvailability(Number(newAppointment.dentist), token)
+        setDentistAvailability(availability)
+        
+        // Calculate available dates for the next 90 days
+        const dates = new Set<string>()
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        for (let i = 0; i < 90; i++) {
+          const checkDate = new Date(today)
+          checkDate.setDate(today.getDate() + i)
+          const dayOfWeek = checkDate.getDay()
+          
+          // Check if dentist is available on this day of week
+          const dayAvailability = availability.find((a: any) => a.day_of_week === dayOfWeek)
+          if (dayAvailability && dayAvailability.is_available) {
+            dates.add(checkDate.toISOString().split('T')[0])
+          }
+        }
+        
+        setAvailableDates(dates)
+      } catch (error) {
+        console.error("Error fetching dentist availability:", error)
+      }
+    }
+
+    fetchDentistAvailability()
+  }, [newAppointment.dentist, token])
+
+  // Update date when calendar date is selected
+  useEffect(() => {
+    if (selectedDate) {
+      const year = selectedDate.getFullYear()
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+      const day = String(selectedDate.getDate()).padStart(2, '0')
+      setNewAppointment(prev => ({ ...prev, date: `${year}-${month}-${day}` }))
+    }
+  }, [selectedDate])
+
+  // Fetch dentist availability for reschedule modal
+  useEffect(() => {
+    const fetchRescheduleDentistAvailability = async () => {
+      if (!token || !rescheduleData.dentist) {
+        setRescheduleDentistAvailability([])
+        setRescheduleAvailableDates(new Set())
+        return
+      }
+
+      try {
+        const availability = await api.getStaffAvailability(Number(rescheduleData.dentist), token)
+        setRescheduleDentistAvailability(availability)
+        
+        // Calculate available dates for the next 90 days
+        const dates = new Set<string>()
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        for (let i = 0; i < 90; i++) {
+          const checkDate = new Date(today)
+          checkDate.setDate(today.getDate() + i)
+          const dayOfWeek = checkDate.getDay()
+          
+          // Check if dentist is available on this day of week
+          const dayAvailability = availability.find((a: any) => a.day_of_week === dayOfWeek)
+          if (dayAvailability && dayAvailability.is_available) {
+            dates.add(checkDate.toISOString().split('T')[0])
+          }
+        }
+        
+        setRescheduleAvailableDates(dates)
+      } catch (error) {
+        console.error("Error fetching reschedule dentist availability:", error)
+      }
+    }
+
+    fetchRescheduleDentistAvailability()
+  }, [rescheduleData.dentist, token])
+
+  // Update reschedule date when calendar date is selected
+  useEffect(() => {
+    if (rescheduleSelectedDate) {
+      const year = rescheduleSelectedDate.getFullYear()
+      const month = String(rescheduleSelectedDate.getMonth() + 1).padStart(2, '0')
+      const day = String(rescheduleSelectedDate.getDate()).padStart(2, '0')
+      setRescheduleData(prev => ({ ...prev, date: `${year}-${month}-${day}` }))
+    }
+  }, [rescheduleSelectedDate])
+
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!token || !user) {
       alert("Please log in to create an appointment")
+      return
+    }
+
+    // Check for time slot conflicts (1-hour blocking)
+    const appointmentDateTime = new Date(`${newAppointment.date}T${newAppointment.time}`)
+    const appointmentHour = appointmentDateTime.getHours()
+    
+    const hasConflict = allAppointments.some(apt => {
+      if (apt.date === newAppointment.date && apt.status !== 'cancelled' && apt.status !== 'missed') {
+        const existingDateTime = new Date(`${apt.date}T${apt.time}`)
+        const existingHour = existingDateTime.getHours()
+        
+        // Check if appointments are within the same hour (1-hour blocking)
+        return existingHour === appointmentHour
+      }
+      return false
+    })
+
+    if (hasConflict) {
+      alert("This time slot is already booked. Please select a time at least 1 hour before or after existing appointments.")
       return
     }
 
@@ -114,7 +241,7 @@ export default function PatientAppointments() {
         time: newAppointment.time,
         service: newAppointment.service || null,
         notes: newAppointment.notes || "",
-        status: "pending", // Patients create pending appointments
+        // No status - backend will set to 'confirmed' and notify staff/owner
       }
 
       console.log("Creating appointment:", appointmentData)
@@ -129,7 +256,7 @@ export default function PatientAppointments() {
         service: "",
         notes: "",
       })
-      alert("Appointment request submitted! Our staff will confirm it soon.")
+      alert("Appointment booked successfully! Staff and owner have been notified.")
     } catch (error) {
       console.error("Error creating appointment:", error)
       alert("Failed to create appointment. Please try again.")
@@ -145,7 +272,10 @@ export default function PatientAppointments() {
       service: appointment.service?.toString() || "",
       notes: appointment.notes || "",
     })
-    setShowEditModal(true)
+    setRescheduleSelectedDate(undefined)
+    setRescheduleDentistAvailability([])
+    setRescheduleAvailableDates(new Set())
+    setShowRescheduleModal(true)
   }
 
   const handleSubmitReschedule = async (e: React.FormEvent) => {
@@ -154,21 +284,32 @@ export default function PatientAppointments() {
     if (!token || !selectedAppointment) return
 
     try {
-      const updateData = {
-        reschedule_date: rescheduleData.date,
-        reschedule_time: rescheduleData.time,
-        reschedule_dentist: rescheduleData.dentist || null,
-        reschedule_service: rescheduleData.service || null,
-        reschedule_notes: rescheduleData.notes || "",
-        status: "reschedule_requested",
+      const rescheduleRequestData = {
+        date: rescheduleData.date,
+        time: rescheduleData.time,
+        dentist: rescheduleData.dentist ? parseInt(rescheduleData.dentist) : undefined,
+        service: rescheduleData.service ? parseInt(rescheduleData.service) : undefined,
+        notes: rescheduleData.notes || "",
       }
 
-      const updatedAppointment = await api.updateAppointment(selectedAppointment.id, updateData, token)
+      const updatedAppointment = await api.requestReschedule(
+        selectedAppointment.id, 
+        rescheduleRequestData, 
+        token
+      )
+      
       setAllAppointments(allAppointments.map(apt => 
         apt.id === selectedAppointment.id ? updatedAppointment : apt
       ))
-      setShowEditModal(false)
+      setShowRescheduleModal(false)
       setSelectedAppointment(null)
+      setRescheduleData({
+        date: "",
+        time: "",
+        dentist: "",
+        service: "",
+        notes: "",
+      })
       alert("Reschedule request submitted! Staff will review it soon.")
     } catch (error) {
       console.error("Error requesting reschedule:", error)
@@ -230,8 +371,8 @@ export default function PatientAppointments() {
     switch (status) {
       case "confirmed":
         return "bg-green-100 text-green-700"
-      case "pending":
-        return "bg-yellow-100 text-yellow-700"
+      case "missed":
+        return "bg-red-100 text-red-700"
       case "reschedule_requested":
         return "bg-orange-100 text-orange-700"
       case "cancel_requested":
@@ -239,7 +380,7 @@ export default function PatientAppointments() {
       case "completed":
         return "bg-blue-100 text-blue-700"
       case "cancelled":
-        return "bg-red-100 text-red-700"
+        return "bg-gray-100 text-gray-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
@@ -251,6 +392,8 @@ export default function PatientAppointments() {
         return "Reschedule Requested"
       case "cancel_requested":
         return "Cancellation Requested"
+      case "missed":
+        return "Missed"
       default:
         return status.charAt(0).toUpperCase() + status.slice(1)
     }
@@ -307,7 +450,7 @@ export default function PatientAppointments() {
           </div>
         ) : appointments.length === 0 ? (
           <div className="bg-white rounded-xl border border-[var(--color-border)] p-12 text-center">
-            <Calendar className="w-16 h-16 mx-auto mb-4 text-[var(--color-text-muted)] opacity-30" />
+            <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-[var(--color-text-muted)] opacity-30" />
             <p className="text-lg font-medium text-[var(--color-text)] mb-2">
               {activeTab === "upcoming" ? "No Upcoming Appointments" : "No Past Appointments"}
             </p>
@@ -326,14 +469,17 @@ export default function PatientAppointments() {
                     <h3 className="text-xl font-semibold text-[var(--color-text)]">
                       {appointment.service_name || "General Consultation"}
                     </h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                      {formatStatus(appointment.status)}
-                    </span>
+                    {/* Only show status badge for non-confirmed appointments */}
+                    {appointment.status !== "confirmed" && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
+                        {formatStatus(appointment.status)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex items-center gap-2 text-[var(--color-text-muted)]">
-                      <Calendar className="w-4 h-4" />
+                      <CalendarIcon className="w-4 h-4" />
                       <span className="text-sm">{appointment.date}</span>
                     </div>
                     <div className="flex items-center gap-2 text-[var(--color-text-muted)]">
@@ -382,7 +528,7 @@ export default function PatientAppointments() {
                   )}
                 </div>
                 
-                {/* Action buttons for confirmed appointments */}
+                {/* Action buttons for confirmed and missed appointments */}
                 {appointment.status === "confirmed" && activeTab === "upcoming" && (
                   <div className="flex flex-col gap-2">
                     <button
@@ -405,6 +551,26 @@ export default function PatientAppointments() {
                   </div>
                 )}
 
+                {/* Reschedule button for missed appointments */}
+                {appointment.status === "missed" && (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => handleRequestReschedule(appointment)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Request Reschedule
+                    </button>
+                  </div>
+                )}
+
+                {/* Info for reschedule requested appointments */}
+                {appointment.status === "reschedule_requested" && (
+                  <div className="text-sm text-orange-600 font-medium">
+                    Reschedule pending approval...
+                  </div>
+                )}
+
                 {/* Info for cancel requested appointments */}
                 {appointment.status === "cancel_requested" && (
                   <div className="text-sm text-red-600 font-medium">
@@ -422,9 +588,14 @@ export default function PatientAppointments() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-[var(--color-primary)]">Request Appointment</h2>
+              <h2 className="text-2xl font-bold text-[var(--color-primary)]">Book Appointment</h2>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false)
+                  setNewAppointment({ date: "", time: "", dentist: "", service: "", notes: "" })
+                  setSelectedDate(undefined)
+                  setAvailableDates(new Set())
+                }}
                 className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -434,36 +605,8 @@ export default function PatientAppointments() {
             <form onSubmit={handleAddAppointment} className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Your appointment request will be marked as "pending" until confirmed by our staff.
+                  <strong>Note:</strong> Your appointment will be booked immediately and staff/owner will be notified.
                 </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                    Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={newAppointment.date}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                    Time <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={newAppointment.time}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                </div>
               </div>
 
               <div>
@@ -472,18 +615,94 @@ export default function PatientAppointments() {
                 </label>
                 <select
                   value={newAppointment.dentist}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, dentist: e.target.value })}
+                  onChange={(e) => {
+                    setNewAppointment({ ...newAppointment, dentist: e.target.value, date: "" })
+                    setSelectedDate(undefined)
+                  }}
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   required
                 >
-                  <option value="">Select a dentist...</option>
+                  <option value="">Select a dentist first...</option>
                   {staff.filter((s) => s.role === 'dentist' || s.user_type === 'owner').map((s) => (
                     <option key={s.id} value={s.id}>
                       {formatDentistName(s)}
                     </option>
                   ))}
                 </select>
+                {newAppointment.dentist && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Available dates are highlighted in the calendar below
+                  </p>
+                )}
               </div>
+
+              {/* Calendar for date selection */}
+              {newAppointment.dentist && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    Select Date <span className="text-red-500">*</span>
+                  </label>
+                  <div className="border border-[var(--color-border)] rounded-lg p-4 bg-white">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      disabled={(date) => {
+                        // Disable past dates
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        if (date < today) return true
+                        
+                        // Disable dates beyond 90 days
+                        const maxDate = new Date(today)
+                        maxDate.setDate(today.getDate() + 90)
+                        if (date > maxDate) return true
+                        
+                        // Disable dates when dentist is not available
+                        const dateStr = date.toISOString().split('T')[0]
+                        return !availableDates.has(dateStr)
+                      }}
+                      modifiers={{
+                        available: (date) => {
+                          const dateStr = date.toISOString().split('T')[0]
+                          return availableDates.has(dateStr)
+                        }
+                      }}
+                      modifiersClassNames={{
+                        available: "bg-green-100 text-green-900 font-semibold hover:bg-green-200"
+                      }}
+                      className="mx-auto"
+                    />
+                    {availableDates.size === 0 && (
+                      <p className="text-sm text-amber-600 mt-2 text-center">
+                        ⚠️ This dentist has no available schedule set. Please contact the clinic.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Time selection - only show if date is selected */}
+              {selectedDate && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    Preferred Time <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={newAppointment.time}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
+                    min="10:00"
+                    max="20:30"
+                    step="600"
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
+                  />
+                  <p className="text-xs text-gray-600 mt-1">
+                    Clinic hours: 10:00 AM - 8:30 PM (10-minute intervals)
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
@@ -520,7 +739,12 @@ export default function PatientAppointments() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setNewAppointment({ date: "", time: "", dentist: "", service: "", notes: "" })
+                    setSelectedDate(undefined)
+                    setAvailableDates(new Set())
+                  }}
                   className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
                 >
                   Cancel
@@ -529,7 +753,7 @@ export default function PatientAppointments() {
                   type="submit"
                   className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
                 >
-                  Submit Request
+                  Book Appointment
                 </button>
               </div>
             </form>
@@ -538,15 +762,17 @@ export default function PatientAppointments() {
       )}
 
       {/* Reschedule Modal */}
-      {showEditModal && selectedAppointment && (
+      {showRescheduleModal && selectedAppointment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between">
               <h2 className="text-2xl font-bold text-[var(--color-primary)]">Request Reschedule</h2>
               <button
                 onClick={() => {
-                  setShowEditModal(false)
+                  setShowRescheduleModal(false)
                   setSelectedAppointment(null)
+                  setRescheduleSelectedDate(undefined)
+                  setRescheduleAvailableDates(new Set())
                 }}
                 className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
               >
@@ -574,37 +800,9 @@ export default function PatientAppointments() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                    New Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={rescheduleData.date}
-                    onChange={(e) => setRescheduleData({ ...rescheduleData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                    New Time <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={rescheduleData.time}
-                    onChange={(e) => setRescheduleData({ ...rescheduleData, time: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                  Preferred Dentist <span className="text-red-500">*</span>
+                  Dentist <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={rescheduleData.dentist}
@@ -612,26 +810,92 @@ export default function PatientAppointments() {
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   required
                 >
-                  <option value="">Select a dentist...</option>
-                  {staff.filter((s) => s.role === 'dentist' || s.user_type === 'owner').map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {formatDentistName(s)}
-                    </option>
-                  ))}
+                  <option value="">Select Dentist</option>
+                  {staff
+                    .filter((member) => member.role === "dentist")
+                    .map((dentist) => (
+                      <option key={dentist.id} value={dentist.id}>
+                        Dr. {dentist.first_name} {dentist.last_name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
+              {/* Calendar for selecting date */}
+              {rescheduleData.dentist && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    Select Date <span className="text-red-500">*</span>
+                  </label>
+                  <div className="border border-[var(--color-border)] rounded-lg p-4">
+                    <Calendar
+                      mode="single"
+                      selected={rescheduleSelectedDate}
+                      onSelect={setRescheduleSelectedDate}
+                      className="rounded-md"
+                      disabled={(date) => {
+                        const dateStr = date.toISOString().split('T')[0]
+                        return !rescheduleAvailableDates.has(dateStr)
+                      }}
+                      modifiers={{
+                        available: (date) => {
+                          const dateStr = date.toISOString().split('T')[0]
+                          return rescheduleAvailableDates.has(dateStr)
+                        }
+                      }}
+                      modifiersStyles={{
+                        available: {
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          fontWeight: 'bold'
+                        }
+                      }}
+                    />
+                    {rescheduleDentistAvailability.length > 0 && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                        <p className="text-sm font-semibold text-green-800 mb-2">Available Times:</p>
+                        {rescheduleDentistAvailability
+                          .filter((a: any) => a.is_available)
+                          .map((availability: any, idx: number) => (
+                            <p key={idx} className="text-sm text-green-700">
+                              {availability.day_name}: {availability.start_time} - {availability.end_time}
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
-                  Treatment/Service <span className="text-red-500">*</span>
+                  New Time <span className="text-red-500">*</span>
+                </label>
+                  <input
+                    type="time"
+                    value={rescheduleData.time}
+                    onChange={(e) => setRescheduleData({ ...rescheduleData, time: e.target.value })}
+                    min="10:00"
+                    max="20:30"
+                    step="600"
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
+                  />
+                  <p className="text-xs text-gray-600 mt-1">
+                    Clinic hours: 10:00 AM - 8:30 PM (10-minute intervals)
+                  </p>
+                </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Treatment/Service
                 </label>
                 <select
                   value={rescheduleData.service}
                   onChange={(e) => setRescheduleData({ ...rescheduleData, service: e.target.value })}
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  required
                 >
-                  <option value="">Select a treatment...</option>
+                  <option value="">Keep current service</option>
                   {services.map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.name}
@@ -657,8 +921,10 @@ export default function PatientAppointments() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowEditModal(false)
+                    setShowRescheduleModal(false)
                     setSelectedAppointment(null)
+                    setRescheduleSelectedDate(undefined)
+                    setRescheduleAvailableDates(new Set())
                   }}
                   className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
                 >
@@ -668,7 +934,7 @@ export default function PatientAppointments() {
                   type="submit"
                   className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
                 >
-                  Submit Request
+                  Submit Reschedule Request
                 </button>
               </div>
             </form>

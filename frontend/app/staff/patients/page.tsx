@@ -546,11 +546,11 @@ export default function StaffPatients() {
                                   </div>
                                 </div>
 
-                                {/* Medical History Card */}
+                                {/* Dental Records Card */}
                                 <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
                                   <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
-                                    Medical Information
+                                    Dental Records
                                   </h4>
                                   <div className="space-y-4 text-sm">
                                     <div>

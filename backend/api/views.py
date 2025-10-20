@@ -7,17 +7,64 @@ from django.contrib.auth import authenticate
 from django.db.models import Sum, Count, Q, F
 from django.utils import timezone
 from datetime import date, timedelta
+import secrets
 from .models import (
     User, Service, Appointment, ToothChart, DentalRecord,
     Document, InventoryItem, Billing, ClinicLocation,
-    TreatmentPlan, TeethImage
+    TreatmentPlan, TeethImage, StaffAvailability, DentistNotification,
+    AppointmentNotification, PasswordResetToken
 )
 from .serializers import (
     UserSerializer, ServiceSerializer, AppointmentSerializer,
     ToothChartSerializer, DentalRecordSerializer, DocumentSerializer,
     InventoryItemSerializer, BillingSerializer, ClinicLocationSerializer,
-    TreatmentPlanSerializer, TeethImageSerializer
+    TreatmentPlanSerializer, TeethImageSerializer, StaffAvailabilitySerializer,
+    DentistNotificationSerializer, AppointmentNotificationSerializer, 
+    PasswordResetTokenSerializer
 )
+
+
+def create_appointment_notification(appointment, notification_type, custom_message=None):
+    """
+    Create notifications for staff and owner about appointment activities.
+    
+    Args:
+        appointment: The Appointment instance
+        notification_type: Type of notification ('new_appointment', 'reschedule_request', 'cancel_request', 'appointment_cancelled')
+        custom_message: Optional custom message, will generate default if not provided
+    """
+    # Generate default message if not provided
+    if not custom_message:
+        patient_name = appointment.patient.get_full_name()
+        appointment_date = appointment.date
+        appointment_time = appointment.time
+        
+        if notification_type == 'new_appointment':
+            custom_message = f"New appointment booked: {patient_name} on {appointment_date} at {appointment_time}"
+        elif notification_type == 'reschedule_request':
+            new_date = appointment.reschedule_date
+            new_time = appointment.reschedule_time
+            custom_message = f"Reschedule requested by {patient_name}: from {appointment_date} {appointment_time} to {new_date} {new_time}"
+        elif notification_type == 'cancel_request':
+            custom_message = f"Cancel requested by {patient_name} for appointment on {appointment_date} at {appointment_time}"
+        elif notification_type == 'appointment_cancelled':
+            custom_message = f"Appointment cancelled: {patient_name} on {appointment_date} at {appointment_time}"
+    
+    # Get all staff and owner users
+    recipients = User.objects.filter(Q(user_type='staff') | Q(user_type='owner'))
+    
+    # Create notification for each recipient
+    notifications_created = []
+    for recipient in recipients:
+        notification = AppointmentNotification.objects.create(
+            recipient=recipient,
+            appointment=appointment,
+            notification_type=notification_type,
+            message=custom_message
+        )
+        notifications_created.append(notification)
+    
+    return notifications_created
 
 
 @api_view(['POST'])
@@ -72,6 +119,74 @@ def login(request):
 def logout(request):
     request.user.auth_token.delete()
     return Response({'message': 'Logged out successfully'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    """Request a password reset token"""
+    email = request.data.get('email')
+    
+    try:
+        user = User.objects.get(email=email)
+        
+        # Generate unique token
+        token = secrets.token_urlsafe(32)
+        
+        # Create password reset token (valid for 1 hour)
+        reset_token = PasswordResetToken.objects.create(
+            user=user,
+            token=token,
+            expires_at=timezone.now() + timedelta(hours=1)
+        )
+        
+        # In production, send email with token
+        # For now, return token in response (NOT SECURE - only for development)
+        return Response({
+            'message': 'Password reset token generated',
+            'token': token,  # Remove this in production
+            'email': email
+        })
+    
+    except User.DoesNotExist:
+        # Don't reveal if email exists or not
+        return Response({
+            'message': 'If the email exists, a password reset link will be sent'
+        })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    """Reset password using token"""
+    token = request.data.get('token')
+    new_password = request.data.get('new_password')
+    
+    try:
+        reset_token = PasswordResetToken.objects.get(token=token)
+        
+        if not reset_token.is_valid():
+            return Response(
+                {'error': 'Token has expired or been used'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update password
+        user = reset_token.user
+        user.set_password(new_password)
+        user.save()
+        
+        # Mark token as used
+        reset_token.is_used = True
+        reset_token.save()
+        
+        return Response({'message': 'Password reset successfully'})
+    
+    except PasswordResetToken.DoesNotExist:
+        return Response(
+            {'error': 'Invalid token'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 @api_view(['GET', 'PATCH', 'PUT'])
@@ -147,11 +262,50 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             return Appointment.objects.filter(patient=user)
         return Appointment.objects.all()
     
+    def list(self, request, *args, **kwargs):
+        """Override list to auto-mark missed appointments"""
+        # Auto-mark missed appointments
+        self.auto_mark_missed_appointments()
+        
+        # Call parent list method
+        return super().list(request, *args, **kwargs)
+    
+    def auto_mark_missed_appointments(self):
+        """Automatically mark appointments as missed if time has passed"""
+        from datetime import datetime
+        
+        now = timezone.now()
+        current_date = now.date()
+        current_time = now.time()
+        
+        # Get all confirmed appointments that should be marked as missed
+        # Appointments where:
+        # 1. Date is in the past, OR
+        # 2. Date is today but time has passed
+        # 3. Status is still 'confirmed' or 'reschedule_requested' or 'cancel_requested'
+        
+        past_appointments = Appointment.objects.filter(
+            Q(date__lt=current_date) |  # Past dates
+            Q(date=current_date, time__lt=current_time),  # Today but time passed
+            status__in=['confirmed', 'reschedule_requested', 'cancel_requested']
+        )
+        
+        # Mark them as missed
+        missed_count = past_appointments.update(status='missed')
+        
+        if missed_count > 0:
+            print(f"[Django] Auto-marked {missed_count} appointments as missed")
+        
+        return missed_count
+    
     def perform_create(self, serializer):
-        """Update patient status after creating appointment"""
+        """Update patient status and create notifications after creating appointment"""
         appointment = serializer.save()
         if appointment.patient:
             appointment.patient.update_patient_status()
+        
+        # Create notifications for all staff and owner
+        create_appointment_notification(appointment, 'new_appointment')
     
     def perform_update(self, serializer):
         """Update patient status after updating appointment"""
@@ -163,6 +317,39 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     def today(self, request):
         today_appointments = Appointment.objects.filter(date=date.today())
         serializer = self.get_serializer(today_appointments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def request_reschedule(self, request, pk=None):
+        """Patient requests to reschedule an appointment"""
+        appointment = self.get_object()
+        
+        # Check if user is the patient
+        if request.user != appointment.patient:
+            return Response(
+                {'error': 'Only the patient can request reschedule'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if appointment.status in ['cancelled', 'completed', 'cancel_requested']:
+            return Response(
+                {'error': 'Cannot reschedule this appointment'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set reschedule request data
+        appointment.reschedule_date = request.data.get('date')
+        appointment.reschedule_time = request.data.get('time')
+        appointment.reschedule_service = request.data.get('service') if request.data.get('service') else appointment.service
+        appointment.reschedule_dentist = request.data.get('dentist') if request.data.get('dentist') else appointment.dentist
+        appointment.reschedule_notes = request.data.get('notes', '')
+        appointment.status = 'reschedule_requested'
+        appointment.save()
+        
+        # Create notifications for staff and owner
+        create_appointment_notification(appointment, 'reschedule_request')
+        
+        serializer = self.get_serializer(appointment)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
@@ -255,6 +442,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointment.cancel_requested_at = timezone.now()
         appointment.save()
         
+        # Create notifications for staff and owner
+        create_appointment_notification(appointment, 'cancel_request')
+        
         serializer = self.get_serializer(appointment)
         return Response(serializer.data)
     
@@ -298,9 +488,81 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(appointment)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'])
+    def mark_completed(self, request, pk=None):
+        """Mark appointment as completed and create dental record"""
+        appointment = self.get_object()
+        
+        # Check if user is staff or owner
+        if request.user.user_type not in ['staff', 'owner']:
+            return Response(
+                {'error': 'Only staff or owner can mark appointments as completed'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if appointment.status in ['cancelled', 'completed']:
+            return Response(
+                {'error': 'This appointment cannot be marked as completed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Mark as completed
+        appointment.status = 'completed'
+        appointment.save()
+        
+        # Auto-create dental record
+        treatment = request.data.get('treatment', '')
+        diagnosis = request.data.get('diagnosis', '')
+        notes = request.data.get('notes', appointment.notes)
+        
+        # If no treatment provided, create a default message
+        if not treatment:
+            service_name = appointment.service.name if appointment.service else 'General Consultation'
+            treatment = f"Completed: {service_name}"
+        
+        dental_record = DentalRecord.objects.create(
+            patient=appointment.patient,
+            appointment=appointment,
+            treatment=treatment,
+            diagnosis=diagnosis,
+            notes=notes,
+            created_by=request.user
+        )
+        
+        return Response({
+            'message': 'Appointment marked as completed and dental record created',
+            'appointment': AppointmentSerializer(appointment).data,
+            'dental_record': DentalRecordSerializer(dental_record).data
+        })
+    
+    @action(detail=True, methods=['post'])
+    def mark_missed(self, request, pk=None):
+        """Mark appointment as missed (manual)"""
+        appointment = self.get_object()
+        
+        # Check if user is staff or owner
+        if request.user.user_type not in ['staff', 'owner']:
+            return Response(
+                {'error': 'Only staff or owner can mark appointments as missed'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if appointment.status in ['cancelled', 'completed', 'missed']:
+            return Response(
+                {'error': 'This appointment cannot be marked as missed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Mark as missed
+        appointment.status = 'missed'
+        appointment.save()
+        
+        serializer = self.get_serializer(appointment)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
-        upcoming = Appointment.objects.filter(date__gte=date.today(), status__in=['pending', 'confirmed'])
+        upcoming = Appointment.objects.filter(date__gte=date.today(), status__in=['confirmed', 'reschedule_requested', 'cancel_requested'])
         serializer = self.get_serializer(upcoming, many=True)
         return Response(serializer.data)
 
@@ -496,7 +758,7 @@ def analytics(request):
     total_appointments = Appointment.objects.count()
     upcoming_appointments = Appointment.objects.filter(
         date__gte=date.today(),
-        status__in=['pending', 'confirmed']
+        status__in=['confirmed', 'reschedule_requested', 'cancel_requested']
     ).count()
     
     return Response({
@@ -509,3 +771,175 @@ def analytics(request):
         'total_appointments': total_appointments,
         'upcoming_appointments': upcoming_appointments,
     })
+
+
+class StaffAvailabilityViewSet(viewsets.ModelViewSet):
+    queryset = StaffAvailability.objects.all()
+    serializer_class = StaffAvailabilitySerializer
+
+    def get_queryset(self):
+        """Filter by staff member if specified"""
+        queryset = StaffAvailability.objects.all()
+        staff_id = self.request.query_params.get('staff_id', None)
+        if staff_id:
+            queryset = queryset.filter(staff_id=staff_id)
+        return queryset
+
+    @action(detail=False, methods=['post'])
+    def bulk_update(self, request):
+        """Bulk update or create availability for a staff member"""
+        staff_id = request.data.get('staff_id')
+        availability_data = request.data.get('availability', [])
+        
+        if not staff_id:
+            return Response(
+                {'error': 'staff_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            staff = User.objects.get(id=staff_id)
+            
+            # Update or create availability for each day
+            for day_data in availability_data:
+                StaffAvailability.objects.update_or_create(
+                    staff=staff,
+                    day_of_week=day_data['day_of_week'],
+                    defaults={
+                        'is_available': day_data.get('is_available', True),
+                        'start_time': day_data.get('start_time', '09:00:00'),
+                        'end_time': day_data.get('end_time', '17:00:00'),
+                    }
+                )
+            
+            # Return updated availability
+            availability = StaffAvailability.objects.filter(staff=staff)
+            serializer = self.get_serializer(availability, many=True)
+            return Response(serializer.data)
+        
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Staff member not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=False, methods=['get'])
+    def by_date(self, request):
+        """Get available staff for a specific date"""
+        date_str = request.query_params.get('date')
+        
+        if not date_str:
+            return Response(
+                {'error': 'date parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from datetime import datetime
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            day_of_week = target_date.weekday()
+            # Convert to our system (0=Sunday, 1=Monday, etc.)
+            day_of_week = (day_of_week + 1) % 7
+            
+            # Get staff available on this day
+            available = StaffAvailability.objects.filter(
+                day_of_week=day_of_week,
+                is_available=True
+            ).select_related('staff')
+            
+            serializer = self.get_serializer(available, many=True)
+            return Response(serializer.data)
+        
+        except ValueError:
+            return Response(
+                {'error': 'Invalid date format. Use YYYY-MM-DD'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class DentistNotificationViewSet(viewsets.ModelViewSet):
+    queryset = DentistNotification.objects.all()
+    serializer_class = DentistNotificationSerializer
+
+    def get_queryset(self):
+        """Dentists only see their own notifications"""
+        user = self.request.user
+        if user.user_type == 'staff' and user.role == 'dentist':
+            return DentistNotification.objects.filter(dentist=user)
+        elif user.user_type == 'owner':
+            # Owner can see all notifications
+            return DentistNotification.objects.all()
+        return DentistNotification.objects.none()
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Mark notification as read"""
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        """Mark all notifications as read for current user"""
+        user = request.user
+        if user.user_type == 'staff' and user.role == 'dentist':
+            DentistNotification.objects.filter(dentist=user, is_read=False).update(is_read=True)
+            return Response({'message': 'All notifications marked as read'})
+        return Response(
+            {'error': 'Only dentists can mark their notifications'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        """Get count of unread notifications"""
+        user = request.user
+        if user.user_type == 'staff' and user.role == 'dentist':
+            count = DentistNotification.objects.filter(dentist=user, is_read=False).count()
+            return Response({'unread_count': count})
+        return Response({'unread_count': 0})
+
+
+class AppointmentNotificationViewSet(viewsets.ModelViewSet):
+    queryset = AppointmentNotification.objects.all()
+    serializer_class = AppointmentNotificationSerializer
+
+    def get_queryset(self):
+        """Staff and owner see their own notifications"""
+        user = self.request.user
+        if user.user_type in ['staff', 'owner']:
+            return AppointmentNotification.objects.filter(recipient=user)
+        return AppointmentNotification.objects.none()
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Mark notification as read"""
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        """Mark all notifications as read for current user"""
+        user = request.user
+        if user.user_type in ['staff', 'owner']:
+            AppointmentNotification.objects.filter(recipient=user, is_read=False).update(is_read=True)
+            return Response({'message': 'All notifications marked as read'})
+        return Response(
+            {'error': 'Only staff and owner can mark notifications'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        """Get count of unread notifications"""
+        user = request.user
+        if user.user_type in ['staff', 'owner']:
+            count = AppointmentNotification.objects.filter(recipient=user, is_read=False).count()
+            return Response({'unread_count': count})
+        return Response({'unread_count': 0})
+
