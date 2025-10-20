@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
 from django.utils import timezone
 from datetime import date, timedelta
 from .models import (
@@ -230,8 +230,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         """Patient requests to cancel an appointment"""
         appointment = self.get_object()
         
-        # Check if user is the patient
-        if request.user != appointment.patient:
+        # Debug logging
+        print(f"[DEBUG] request.user: {request.user} (ID: {request.user.id}, type: {request.user.user_type})")
+        print(f"[DEBUG] appointment.patient: {appointment.patient} (ID: {appointment.patient.id})")
+        print(f"[DEBUG] Are they equal? {request.user == appointment.patient}")
+        print(f"[DEBUG] IDs equal? {request.user.id == appointment.patient.id}")
+        
+        # Check if user is the patient (compare by ID to be safe)
+        if request.user.id != appointment.patient.id:
             return Response(
                 {'error': 'Only the patient can request cancellation'},
                 status=status.HTTP_403_FORBIDDEN
@@ -475,7 +481,7 @@ def analytics(request):
     
     # Expenses from inventory
     total_expenses = InventoryItem.objects.aggregate(
-        total=Sum(models.F('cost') * models.F('quantity'))
+        total=Sum(F('cost') * F('quantity'))
     )['total'] or 0
     
     # Patient statistics

@@ -63,6 +63,7 @@ export default function OwnerPatients() {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
+  const [appointments, setAppointments] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [newPatient, setNewPatient] = useState({
     firstName: "",
@@ -76,18 +77,56 @@ export default function OwnerPatients() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Fetch real patients from API
+  // Fetch real patients and appointments from API
   useEffect(() => {
-    const fetchPatients = async () => {
+    const fetchData = async () => {
       if (!token) return
       
       try {
         setIsLoading(true)
-        const response = await api.getPatients(token)
-        console.log("Fetched patients:", response)
+        
+        // Fetch patients and appointments in parallel
+        const [patientsResponse, appointmentsResponse] = await Promise.all([
+          api.getPatients(token),
+          api.getAppointments(token)
+        ])
+        
+        console.log("Fetched patients:", patientsResponse)
+        console.log("Fetched appointments:", appointmentsResponse)
+        
+        // Store appointments for later use
+        setAppointments(appointmentsResponse)
+        
+        // Get current date for comparison
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
         
         // Transform API response to Patient interface
-        const transformedPatients = response.map((user: any) => {
+        const transformedPatients = patientsResponse.map((user: any) => {
+          // Filter appointments for this patient
+          const patientAppointments = appointmentsResponse.filter(
+            (apt: any) => apt.patient === user.id
+          )
+          
+          // Separate upcoming and past appointments
+          const upcomingAppts = patientAppointments
+            .filter((apt: any) => {
+              const aptDate = new Date(apt.date)
+              return aptDate >= today && apt.status !== 'cancelled' && apt.status !== 'completed'
+            })
+            .map((apt: any) => ({
+              date: apt.date,
+              time: apt.time,
+              type: apt.service_name || "General Consultation",
+              doctor: apt.dentist_name || "Dr. Marvin Dorotheo"
+            }))
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          
+          const pastAppts = patientAppointments.filter((apt: any) => {
+            const aptDate = new Date(apt.date)
+            return aptDate < today || apt.status === 'completed'
+          })
+          
           // Determine status based on last appointment date
           let status: "active" | "inactive" = user.is_active_patient ? "active" : "inactive"
           
@@ -104,8 +143,8 @@ export default function OwnerPatients() {
             gender: user.gender || "Not specified",
             medicalHistory: [],
             allergies: [],
-            upcomingAppointments: [],
-            pastAppointments: 0,
+            upcomingAppointments: upcomingAppts,
+            pastAppointments: pastAppts.length,
             totalBilled: 0,
             balance: 0,
             notes: "",
@@ -114,13 +153,13 @@ export default function OwnerPatients() {
         
         setPatients(transformedPatients)
       } catch (error) {
-        console.error("Error fetching patients:", error)
+        console.error("Error fetching data:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchPatients()
+    fetchData()
   }, [token])
 
   // Remove mock patients - only use real patient data from API

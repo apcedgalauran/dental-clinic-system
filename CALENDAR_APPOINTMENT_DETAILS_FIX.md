@@ -23,7 +23,7 @@ interface Appointment {
   id: number
   date: string
   time: string
-  patient_name: string
+  patient_name: stringafhsdkljfhasld
   dentist_name: string  // ADDED
   service_name: string | null
   status: string
