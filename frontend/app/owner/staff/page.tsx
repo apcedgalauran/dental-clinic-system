@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Search } from "lucide-react"
+import { Plus, Trash2, Search, Edit2 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -21,6 +21,8 @@ export default function OwnerStaff() {
   const { token } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [newStaff, setNewStaff] = useState({
@@ -112,6 +114,37 @@ export default function OwnerStaff() {
     } catch (error) {
       console.error("Error deleting staff:", error)
       alert("Failed to delete staff member.")
+    }
+  }
+
+  const handleEditClick = (member: StaffMember) => {
+    setEditingStaff(member)
+    setShowEditModal(true)
+  }
+
+  const handleUpdateStaff = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!token || !editingStaff) return
+
+    try {
+      const updateData = {
+        first_name: editingStaff.first_name,
+        last_name: editingStaff.last_name,
+        email: editingStaff.email,
+        phone: editingStaff.phone,
+        address: editingStaff.address,
+        role: editingStaff.role,
+      }
+
+      await api.updateStaff(editingStaff.id, updateData, token)
+      await fetchStaff()
+      setShowEditModal(false)
+      setEditingStaff(null)
+      alert("Staff member updated successfully!")
+    } catch (error) {
+      console.error("Error updating staff:", error)
+      alert("Failed to update staff member.")
     }
   }
 
@@ -213,12 +246,22 @@ export default function OwnerStaff() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button 
-                        onClick={() => handleDeleteStaff(member.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleEditClick(member)}
+                          className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600"
+                          title="Edit Staff"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteStaff(member.id)}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
+                          title="Delete Staff"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -388,6 +431,130 @@ export default function OwnerStaff() {
                   className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
                 >
                   Add Staff
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Modal */}
+      {showEditModal && editingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-[var(--color-border)] px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-2xl font-serif font-bold text-[var(--color-primary)]">Edit Staff Member</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditingStaff(null)
+                }}
+                className="p-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStaff} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    First Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaff.first_name}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, first_name: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    Last Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaff.last_name}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, last_name: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editingStaff.email}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Contact Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={editingStaff.phone}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Address <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={editingStaff.address}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, address: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Role <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={editingStaff.role}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, role: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="">Select a role...</option>
+                  <option value="receptionist">Receptionist</option>
+                  <option value="dentist">Dentist</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingStaff(null)
+                  }}
+                  className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

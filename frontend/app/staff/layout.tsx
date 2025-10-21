@@ -76,7 +76,9 @@ export default function StaffLayout({ children }: Readonly<{ children: React.Rea
                 <p className="font-medium text-[var(--color-text)] text-sm">
                   {user ? `${user.first_name} ${user.last_name}` : "Staff Member"}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">Dentist</p>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {user?.role === 'receptionist' ? 'Receptionist' : user?.role === 'dentist' ? 'Dentist' : 'Staff'}
+                </p>
               </div>
               <div className="w-10 h-10 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />

@@ -298,6 +298,36 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         
         return missed_count
     
+    def create(self, request, *args, **kwargs):
+        """Create appointment with double booking validation"""
+        # Extract date and time from request
+        appointment_date = request.data.get('date')
+        appointment_time = request.data.get('time')
+        
+        # Check for existing appointments at the same date and time
+        if appointment_date and appointment_time:
+            # Normalize time to HH:MM format for comparison
+            time_normalized = appointment_time[:5] if len(appointment_time) > 5 else appointment_time
+            
+            # Check if any confirmed/pending appointment exists at this time
+            existing_appointments = Appointment.objects.filter(
+                date=appointment_date,
+                time__startswith=time_normalized,
+                status__in=['confirmed', 'pending']
+            ).exclude(status='cancelled')
+            
+            if existing_appointments.exists():
+                return Response(
+                    {
+                        'error': 'Time slot conflict',
+                        'message': f'An appointment already exists at {appointment_time} on {appointment_date}. Please choose a different time slot.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Continue with normal creation
+        return super().create(request, *args, **kwargs)
+    
     def perform_create(self, serializer):
         """Update patient status and create notifications after creating appointment"""
         appointment = serializer.save()
@@ -306,6 +336,38 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         
         # Create notifications for all staff and owner
         create_appointment_notification(appointment, 'new_appointment')
+    
+    def update(self, request, *args, **kwargs):
+        """Update appointment with double booking validation"""
+        instance = self.get_object()
+        
+        # Extract date and time from request
+        appointment_date = request.data.get('date', instance.date)
+        appointment_time = request.data.get('time', instance.time)
+        
+        # Check for existing appointments at the same date and time
+        if appointment_date and appointment_time:
+            # Normalize time to HH:MM format for comparison
+            time_normalized = str(appointment_time)[:5] if len(str(appointment_time)) > 5 else str(appointment_time)
+            
+            # Check if any confirmed/pending appointment exists at this time (excluding current appointment)
+            existing_appointments = Appointment.objects.filter(
+                date=appointment_date,
+                time__startswith=time_normalized,
+                status__in=['confirmed', 'pending']
+            ).exclude(id=instance.id).exclude(status='cancelled')
+            
+            if existing_appointments.exists():
+                return Response(
+                    {
+                        'error': 'Time slot conflict',
+                        'message': f'An appointment already exists at {appointment_time} on {appointment_date}. Please choose a different time slot.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Continue with normal update
+        return super().update(request, *args, **kwargs)
     
     def perform_update(self, serializer):
         """Update patient status after updating appointment"""
@@ -487,6 +549,31 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(appointment)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def booked_slots(self, request):
+        """Get all booked time slots (date and time) for preventing double booking"""
+        # Get query parameters
+        dentist_id = request.query_params.get('dentist_id')
+        date = request.query_params.get('date')
+        
+        # Build query - get all non-cancelled appointments
+        queryset = Appointment.objects.filter(
+            Q(status='confirmed') | Q(status='pending')
+        ).exclude(status='cancelled')
+        
+        # Filter by dentist if provided
+        if dentist_id:
+            queryset = queryset.filter(dentist_id=dentist_id)
+        
+        # Filter by date if provided
+        if date:
+            queryset = queryset.filter(date=date)
+        
+        # Return only date and time (no patient info for privacy)
+        booked_slots = queryset.values('date', 'time', 'dentist_id').distinct()
+        
+        return Response(list(booked_slots))
 
     @action(detail=True, methods=['post'])
     def mark_completed(self, request, pk=None):

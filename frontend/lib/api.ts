@@ -156,6 +156,22 @@ export const api = {
     if (!response.ok) throw new Error("Failed to delete appointment")
   },
 
+  // Get booked time slots for double booking prevention
+  getBookedSlots: async (dentistId?: number, date?: string, token?: string) => {
+    const params = new URLSearchParams()
+    if (dentistId) params.append('dentist_id', dentistId.toString())
+    if (date) params.append('date', date)
+    
+    const headers: any = {}
+    if (token) headers.Authorization = `Token ${token}`
+    
+    const response = await fetch(`${API_BASE_URL}/appointments/booked_slots/?${params.toString()}`, {
+      headers,
+    })
+    if (!response.ok) throw new Error("Failed to fetch booked slots")
+    return response.json()
+  },
+
   // Reschedule request endpoints
   requestReschedule: async (id: number, data: { date: string; time: string; service?: number; dentist?: number; notes?: string }, token: string) => {
     const response = await fetch(`${API_BASE_URL}/appointments/${id}/request_reschedule/`, {
@@ -347,6 +363,19 @@ export const api = {
       headers: { Authorization: `Token ${token}` },
     })
     if (!response.ok) throw new Error("Failed to delete staff")
+  },
+
+  updateStaff: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/users/${id}/`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error("Failed to update staff")
+    return response.json()
   },
 
   // Analytics endpoints (owner only)

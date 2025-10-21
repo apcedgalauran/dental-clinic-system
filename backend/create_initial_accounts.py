@@ -39,31 +39,11 @@ def create_initial_accounts():
     else:
         print("- Owner account already exists")
     
-    # Create staff account
-    if not User.objects.filter(email='staff@dorotheo.com').exists():
-        staff = User.objects.create_user(
-            username='staff@dorotheo.com',
-            email='staff@dorotheo.com',
-            password='staff123',
-            user_type='staff',
-            first_name='Receptionist',
-            last_name='Staff',
-            phone='09181234567',
-            address='Dorotheo Dental Clinic'
-        )
-        print("\n✓ Staff account created:")
-        print(f"  Email: staff@dorotheo.com")
-        print(f"  Password: staff123")
-        print(f"  Name: {staff.get_full_name()}")
-    else:
-        print("- Staff account already exists")
-    
     print("\n" + "=" * 60)
     print("INITIAL ACCOUNTS CREATED SUCCESSFULLY!")
     print("=" * 60)
     print("\nYou can now login with:")
     print("  Owner: owner@dorotheo.com / owner123")
-    print("  Staff: staff@dorotheo.com / staff123")
     print("\nPatients can register through the website.\n")
 
 if __name__ == '__main__':

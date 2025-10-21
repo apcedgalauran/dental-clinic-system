@@ -86,6 +86,7 @@ class Service(models.Model):
 
 class Appointment(models.Model):
     STATUS_CHOICES = (
+        ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
         ('cancelled', 'Cancelled'),
         ('completed', 'Completed'),

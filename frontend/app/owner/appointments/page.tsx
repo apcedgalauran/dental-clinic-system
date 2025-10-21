@@ -11,10 +11,11 @@ import {
   Save, 
   X, 
   Trash2,
-  Calendar,
+  Calendar as CalendarIcon,
   Clock,
   FileText
 } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -64,6 +65,7 @@ interface Staff {
   first_name: string
   last_name: string
   user_type: string
+  role?: string
 }
 
 export default function OwnerAppointments() {
@@ -87,6 +89,61 @@ export default function OwnerAppointments() {
     service: "",
     notes: "",
   })
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+  const [dentistAvailability, setDentistAvailability] = useState<any[]>([])
+  const [availableDates, setAvailableDates] = useState<Set<string>>(new Set())
+  const [bookedSlots, setBookedSlots] = useState<Array<{date: string, time: string, dentist_id: number}>>([])
+  const [patientSearchQuery, setPatientSearchQuery] = useState("")
+
+  // Generate 30-minute time slots from 10:00 AM to 8:00 PM
+  const generateTimeSlots = () => {
+    const slots: { value: string; display: string }[] = []
+    for (let hour = 10; hour <= 20; hour++) {
+      for (let minute of [0, 30]) {
+        if (hour === 20 && minute === 30) break // Stop at 8:00 PM
+        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        // Convert to 12-hour format for display
+        const hour12 = hour > 12 ? hour - 12 : hour
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        const displayStr = `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`
+        slots.push({ value: timeStr, display: displayStr })
+      }
+    }
+    return slots
+  }
+
+  // Check if a time slot is already booked
+  // TWO blocking rules:
+  // BLOCKING RULE: Same date + time = BLOCKED (regardless of dentist)
+  const isTimeSlotBooked = (date: string, time: string) => {
+    // Normalize time format: remove seconds if present (10:00:00 -> 10:00)
+    const normalizedTime = time.substring(0, 5)
+    
+    const isBooked = bookedSlots.some(slot => {
+      const slotTime = slot.time.substring(0, 5) // Normalize slot time too
+      
+      // Only check if same date AND same time
+      return slot.date === date && slotTime === normalizedTime
+    })
+    
+    console.log(`[OWNER] Checking ${time} on ${date}:`, isBooked ? 'BLOCKED' : 'Available')
+    return isBooked
+  }
+
+  // Format dentist name with Dr. prefix
+  const formatDentistName = (dentist: Staff) => {
+    const prefix = dentist.first_name.startsWith('Dr.') ? '' : 'Dr. '
+    return `${prefix}${dentist.first_name} ${dentist.last_name}`
+  }
+
+  // Format time from HH:MM:SS or HH:MM to 12-hour format (e.g., "1:00 PM")
+  const formatTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
+  }
 
   // Fetch patients, services, and staff for the appointment dropdown
   useEffect(() => {
@@ -101,7 +158,13 @@ export default function OwnerAppointments() {
         ])
         setPatients(patientsData)
         setServices(servicesData)
-        setStaff(staffData.filter((s: Staff) => s.user_type === 'dentist' || s.user_type === 'owner'))
+        // Show all dentists and owners - check both user_type and role fields
+        setStaff(staffData.filter((s: Staff) => 
+          s.user_type === 'dentist' || 
+          s.user_type === 'owner' || 
+          s.role === 'dentist' || 
+          s.role === 'owner'
+        ))
       } catch (error) {
         console.error("Error fetching data:", error)
       }
@@ -130,6 +193,76 @@ export default function OwnerAppointments() {
     fetchAppointments()
   }, [token])
 
+  // Fetch dentist availability when dentist is selected
+  useEffect(() => {
+    const fetchDentistAvailability = async () => {
+      if (!token || !newAppointment.dentist) {
+        setDentistAvailability([])
+        setAvailableDates(new Set())
+        return
+      }
+
+      try {
+        const availability = await api.getStaffAvailability(Number(newAppointment.dentist), token)
+        setDentistAvailability(availability)
+        
+        // Calculate available dates for the next 90 days
+        const dates = new Set<string>()
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        for (let i = 0; i < 90; i++) {
+          const checkDate = new Date(today)
+          checkDate.setDate(today.getDate() + i)
+          const dayOfWeek = checkDate.getDay()
+          
+          // Check if dentist is available on this day of week
+          const dayAvailability = availability.find((a: any) => a.day_of_week === dayOfWeek)
+          if (dayAvailability && dayAvailability.is_available) {
+            dates.add(checkDate.toISOString().split('T')[0])
+          }
+        }
+        
+        setAvailableDates(dates)
+      } catch (error) {
+        console.error("Error fetching dentist availability:", error)
+      }
+    }
+
+    fetchDentistAvailability()
+  }, [newAppointment.dentist, token])
+
+  // Update date when calendar date is selected
+  useEffect(() => {
+    if (selectedDate) {
+      const year = selectedDate.getFullYear()
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+      const day = String(selectedDate.getDate()).padStart(2, '0')
+      setNewAppointment(prev => ({ ...prev, date: `${year}-${month}-${day}` }))
+    }
+  }, [selectedDate])
+
+  // Fetch booked slots when date changes (get ALL slots, not filtered by dentist)
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!token) return
+
+      try {
+        // Fetch ALL booked slots (no dentist filter) to prevent double booking across all dentists
+        const date = newAppointment.date || undefined
+        
+        console.log('[OWNER] Fetching booked slots for date:', date)
+        const slots = await api.getBookedSlots(undefined, date, token)
+        console.log('[OWNER] Booked slots received:', slots)
+        setBookedSlots(slots)
+      } catch (error) {
+        console.error("Error fetching booked slots:", error)
+      }
+    }
+
+    fetchBookedSlots()
+  }, [newAppointment.date, token])
+
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -138,23 +271,11 @@ export default function OwnerAppointments() {
       return
     }
 
-    // Check for time slot conflicts (1-hour blocking)
-    const appointmentDateTime = new Date(`${newAppointment.date}T${newAppointment.time}`)
-    const appointmentHour = appointmentDateTime.getHours()
-    
-    const hasConflict = appointments.some(apt => {
-      if (apt.date === newAppointment.date && apt.status !== 'cancelled') {
-        const existingDateTime = new Date(`${apt.date}T${apt.time}`)
-        const existingHour = existingDateTime.getHours()
-        
-        // Check if appointments are within the same hour (1-hour blocking)
-        return existingHour === appointmentHour
-      }
-      return false
-    })
+    // Check for time slot conflicts using booked slots
+    const hasConflict = isTimeSlotBooked(newAppointment.date, newAppointment.time)
 
     if (hasConflict) {
-      alert("This time slot is already booked. Please select a time at least 1 hour before or after existing appointments.")
+      alert("This time slot is already booked. Please select a different time.")
       return
     }
 
@@ -181,10 +302,17 @@ export default function OwnerAppointments() {
         service: "",
         notes: "",
       })
+      setSelectedDate(undefined)
+      setBookedSlots([])
       alert("Appointment created successfully!")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating appointment:", error)
-      alert("Failed to create appointment. Please try again.")
+      // Check if it's a double booking error from backend
+      if (error.response?.data?.error === 'Time slot conflict') {
+        alert(error.response.data.message || "This time slot is already booked. Please select a different time.")
+      } else {
+        alert("Failed to create appointment. Please try again.")
+      }
     }
   }
 
@@ -311,6 +439,24 @@ export default function OwnerAppointments() {
     } catch (error) {
       console.error("Error marking appointment as missed:", error)
       alert("Failed to mark appointment as missed.")
+    }
+  }
+
+  const handleApprove = async (appointmentId: number) => {
+    if (!token) return
+    
+    if (!confirm("Approve this appointment?")) return
+    
+    try {
+      await api.updateAppointment(appointmentId, { status: "confirmed" }, token)
+      // Update the appointment status in the list
+      setAppointments(appointments.map(apt => 
+        apt.id === appointmentId ? { ...apt, status: "confirmed" as const } : apt
+      ))
+      alert("Appointment approved successfully!")
+    } catch (error) {
+      console.error("Error approving appointment:", error)
+      alert("Failed to approve appointment.")
     }
   }
 
@@ -460,7 +606,7 @@ export default function OwnerAppointments() {
                     </td>
                     <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.service_name || "General Consultation"}</td>
                     <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.date}</td>
-                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.time}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{formatTime(apt.time)}</td>
                     <td className="px-6 py-4 text-[var(--color-text-muted)]">{apt.dentist_name || "Not Assigned"}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
@@ -479,6 +625,21 @@ export default function OwnerAppointments() {
                         >
                           <Eye className="w-4 h-4 text-[var(--color-primary)]" />
                         </button>
+                        {/* Approve Button - Only for pending appointments */}
+                        {apt.status === "pending" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleApprove(apt.id)
+                            }}
+                            className="p-2 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Approve Appointment"
+                          >
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        )}
                         {/* Mark as Complete Button - Only for confirmed appointments */}
                         {apt.status === "confirmed" && (
                           <button
@@ -660,7 +821,7 @@ export default function OwnerAppointments() {
                                     {/* Current Appointment Details */}
                                     <div className="bg-white rounded-lg p-4 border border-orange-200">
                                       <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                        <Calendar className="w-4 h-4" />
+                                        <CalendarIcon className="w-4 h-4" />
                                         Current Appointment
                                       </h4>
                                       <div className="space-y-2 text-sm">
@@ -760,7 +921,7 @@ export default function OwnerAppointments() {
                                 {/* Appointment Details Card */}
                                 <div className="bg-white rounded-xl p-5 border border-[var(--color-border)] shadow-sm">
                                   <h4 className="font-semibold text-[var(--color-primary)] mb-4 flex items-center gap-2">
-                                    <Calendar className="w-5 h-5" />
+                                    <CalendarIcon className="w-5 h-5" />
                                     Appointment Details
                                   </h4>
                                   <div className="space-y-3 text-sm">
@@ -774,7 +935,7 @@ export default function OwnerAppointments() {
                                       <p className="font-medium">{apt.service_name || "General Consultation"}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Calendar className="w-4 h-4 text-[var(--color-text-muted)]" />
+                                      <CalendarIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
                                       <div>
                                         <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Date</p>
                                         <p className="font-medium">{apt.date}</p>
@@ -839,21 +1000,44 @@ export default function OwnerAppointments() {
 
       {/* Add Appointment Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
-            <div className="border-b border-[var(--color-border)] px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-serif font-bold text-[var(--color-primary)]">Add Appointment</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-[var(--color-primary)]">Book Appointment</h2>
               <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
+                onClick={() => {
+                  setShowAddModal(false)
+                  setNewAppointment({ patient: "", date: "", time: "", dentist: "", service: "", notes: "" })
+                  setSelectedPatientId(null)
+                  setSelectedDate(undefined)
+                  setAvailableDates(new Set())
+                  setPatientSearchQuery("")
+                }}
+                className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
               >
-                ×
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddAppointment} className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> The appointment will be confirmed immediately.
+                </p>
+              </div>
+
+              {/* Patient Search/Select */}
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Patient *</label>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Patient <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search patient by name or email..."
+                  value={patientSearchQuery}
+                  onChange={(e) => setPatientSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] mb-2"
+                />
                 <select
                   value={selectedPatientId || ""}
                   onChange={(e) => setSelectedPatientId(Number(e.target.value))}
@@ -861,48 +1045,149 @@ export default function OwnerAppointments() {
                   required
                 >
                   <option value="">Select a patient...</option>
-                  {patients.map((patient) => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.first_name} {patient.last_name} - {patient.email}
-                    </option>
-                  ))}
+                  {patients
+                    .filter((patient) => {
+                      if (!patientSearchQuery) return true
+                      const query = patientSearchQuery.toLowerCase()
+                      return (
+                        patient.first_name.toLowerCase().includes(query) ||
+                        patient.last_name.toLowerCase().includes(query) ||
+                        patient.email.toLowerCase().includes(query)
+                      )
+                    })
+                    .map((patient) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.first_name} {patient.last_name} - {patient.email}
+                      </option>
+                    ))}
                 </select>
                 {patients.length === 0 && (
-                  <p className="text-sm text-amber-600 mt-1">No patients registered yet. Please add patients first.</p>
+                  <p className="text-sm text-amber-600 mt-1">No patients registered yet.</p>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Date *</label>
-                  <input
-                    type="date"
-                    value={newAppointment.date}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Time *</label>
-                  <input
-                    type="time"
-                    value={newAppointment.time}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Preferred Dentist <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={newAppointment.dentist}
+                  onChange={(e) => {
+                    setNewAppointment({ ...newAppointment, dentist: e.target.value, date: "", time: "" })
+                    setSelectedDate(undefined)
+                  }}
+                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  required
+                >
+                  <option value="">Select a dentist first...</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {formatDentistName(s)}
+                    </option>
+                  ))}
+                </select>
+                {newAppointment.dentist && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Available dates are highlighted in the calendar below
+                  </p>
+                )}
               </div>
 
+              {/* Calendar for date selection */}
+              {newAppointment.dentist && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    Select Date <span className="text-red-500">*</span>
+                  </label>
+                  <div className="border border-[var(--color-border)] rounded-lg p-4 bg-white">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      disabled={(date) => {
+                        // Disable past dates
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        if (date < today) return true
+                        
+                        // Disable dates beyond 90 days
+                        const maxDate = new Date(today)
+                        maxDate.setDate(today.getDate() + 90)
+                        if (date > maxDate) return true
+                        
+                        // Disable dates when dentist is not available
+                        const dateStr = date.toISOString().split('T')[0]
+                        return !availableDates.has(dateStr)
+                      }}
+                      modifiers={{
+                        available: (date) => {
+                          const dateStr = date.toISOString().split('T')[0]
+                          return availableDates.has(dateStr)
+                        }
+                      }}
+                      modifiersClassNames={{
+                        available: "bg-green-100 text-green-900 font-semibold hover:bg-green-200"
+                      }}
+                      className="mx-auto"
+                    />
+                    {availableDates.size === 0 && (
+                      <p className="text-sm text-amber-600 mt-2 text-center">
+                        ⚠️ This dentist has no available schedule set. Please contact admin.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Time selection - only show if date is selected */}
+              {selectedDate && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                    Preferred Time <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Select a 30-minute time slot (10:00 AM - 8:00 PM). Grayed out times are already booked.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto p-2 border border-[var(--color-border)] rounded-lg">
+                    {generateTimeSlots().map((slot) => {
+                      const isBooked = isTimeSlotBooked(newAppointment.date, slot.value)
+                      const isSelected = newAppointment.time === slot.value
+                      return (
+                        <button
+                          key={slot.value}
+                          type="button"
+                          onClick={() => !isBooked && setNewAppointment({ ...newAppointment, time: slot.value })}
+                          disabled={isBooked}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-[var(--color-primary)] text-white'
+                              : isBooked
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
+                              : 'bg-white border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)]'
+                          }`}
+                        >
+                          {slot.display}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {!newAppointment.time && (
+                    <p className="text-xs text-red-600 mt-1">* Please select a time slot</p>
+                  )}
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Service (Optional)</label>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Treatment/Service <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={newAppointment.service}
                   onChange={(e) => setNewAppointment({ ...newAppointment, service: e.target.value })}
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  required
                 >
-                  <option value="">Select a service...</option>
+                  <option value="">Select a treatment...</option>
                   {services.map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.name}
@@ -912,28 +1197,14 @@ export default function OwnerAppointments() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Dentist (Optional)</label>
-                <select
-                  value={newAppointment.dentist}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, dentist: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                >
-                  <option value="">Select a dentist...</option>
-                  {staff.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.first_name.startsWith('Dr.') ? '' : 'Dr. '}{s.first_name} {s.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Notes (Optional)</label>
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+                  Additional Notes
+                </label>
                 <textarea
                   value={newAppointment.notes}
                   onChange={(e) => setNewAppointment({ ...newAppointment, notes: e.target.value })}
-                  rows={3}
-                  placeholder="Add any special instructions or notes..."
+                  rows={4}
+                  placeholder="Any special requests or information..."
                   className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>
@@ -941,16 +1212,24 @@ export default function OwnerAppointments() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setNewAppointment({ patient: "", date: "", time: "", dentist: "", service: "", notes: "" })
+                    setSelectedPatientId(null)
+                    setSelectedDate(undefined)
+                    setAvailableDates(new Set())
+                    setPatientSearchQuery("")
+                  }}
                   className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium"
+                  disabled={!selectedPatientId || !newAppointment.date || !newAppointment.time || !newAppointment.dentist}
+                  className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Appointment
+                  Book Appointment
                 </button>
               </div>
             </form>

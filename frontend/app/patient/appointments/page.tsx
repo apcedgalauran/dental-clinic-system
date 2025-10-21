@@ -79,6 +79,41 @@ export default function PatientAppointments() {
   const [rescheduleDentistAvailability, setRescheduleDentistAvailability] = useState<any[]>([])
   const [availableDates, setAvailableDates] = useState<Set<string>>(new Set())
   const [rescheduleAvailableDates, setRescheduleAvailableDates] = useState<Set<string>>(new Set())
+  const [bookedSlots, setBookedSlots] = useState<Array<{date: string, time: string, dentist_id: number}>>([])
+
+  // Generate 30-minute time slots from 10:00 AM to 8:00 PM
+  const generateTimeSlots = () => {
+    const slots: { value: string; display: string }[] = []
+    for (let hour = 10; hour <= 20; hour++) {
+      for (let minute of [0, 30]) {
+        if (hour === 20 && minute === 30) break // Stop at 8:00 PM
+        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        // Convert to 12-hour format for display
+        const hour12 = hour > 12 ? hour - 12 : hour
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        const displayStr = `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`
+        slots.push({ value: timeStr, display: displayStr })
+      }
+    }
+    return slots
+  }
+
+  // Check if a time slot is already booked
+  // BLOCKING RULE: Same date + time = BLOCKED (regardless of dentist)
+  const isTimeSlotBooked = (date: string, time: string) => {
+    // Normalize time format: remove seconds if present (10:00:00 -> 10:00)
+    const normalizedTime = time.substring(0, 5)
+    
+    const isBooked = bookedSlots.some(slot => {
+      const slotTime = slot.time.substring(0, 5) // Normalize slot time too
+      
+      // Only check if same date AND same time
+      return slot.date === date && slotTime === normalizedTime
+    })
+    
+    console.log(`[PATIENT] Checking ${time} on ${date}:`, isBooked ? 'BLOCKED' : 'Available')
+    return isBooked
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -195,6 +230,29 @@ export default function PatientAppointments() {
     fetchRescheduleDentistAvailability()
   }, [rescheduleData.dentist, token])
 
+  // Fetch booked slots when date changes (get ALL slots, not filtered by dentist)
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!token) return
+
+      try {
+        // Fetch ALL booked slots (no dentist filter) to prevent double booking across all dentists
+        const date = newAppointment.date || undefined
+        
+        console.log('[PATIENT] Fetching booked slots for date:', date)
+        const slots = await api.getBookedSlots(undefined, date, token)
+        console.log('[PATIENT] Booked slots received:', slots)
+        setBookedSlots(slots)
+      } catch (error) {
+        console.error("Error fetching booked slots:", error)
+      }
+    }
+
+    if (newAppointment.date) {
+      fetchBookedSlots()
+    }
+  }, [newAppointment.date, token])
+
   // Update reschedule date when calendar date is selected
   useEffect(() => {
     if (rescheduleSelectedDate) {
@@ -213,35 +271,23 @@ export default function PatientAppointments() {
       return
     }
 
-    // Check for time slot conflicts (1-hour blocking)
-    const appointmentDateTime = new Date(`${newAppointment.date}T${newAppointment.time}`)
-    const appointmentHour = appointmentDateTime.getHours()
-    
-    const hasConflict = allAppointments.some(apt => {
-      if (apt.date === newAppointment.date && apt.status !== 'cancelled' && apt.status !== 'missed') {
-        const existingDateTime = new Date(`${apt.date}T${apt.time}`)
-        const existingHour = existingDateTime.getHours()
-        
-        // Check if appointments are within the same hour (1-hour blocking)
-        return existingHour === appointmentHour
-      }
-      return false
-    })
+    // Check for time slot conflicts using the booked slots data
+    const hasConflict = isTimeSlotBooked(newAppointment.date, newAppointment.time)
 
     if (hasConflict) {
-      alert("This time slot is already booked. Please select a time at least 1 hour before or after existing appointments.")
+      alert("This time slot is already booked. Please select a different time.")
       return
     }
 
     try {
       const appointmentData = {
         patient: user.id,
-        dentist: newAppointment.dentist || null,
+        dentist: newAppointment.dentist ? Number.parseInt(newAppointment.dentist) : null,
         date: newAppointment.date,
         time: newAppointment.time,
-        service: newAppointment.service || null,
+        service: newAppointment.service ? Number.parseInt(newAppointment.service) : null,
         notes: newAppointment.notes || "",
-        // No status - backend will set to 'confirmed' and notify staff/owner
+        status: "pending", // Patients create pending appointments - staff/owner must approve
       }
 
       console.log("Creating appointment:", appointmentData)
@@ -256,10 +302,20 @@ export default function PatientAppointments() {
         service: "",
         notes: "",
       })
+      setSelectedDate(undefined)
+      setBookedSlots([])
       alert("Appointment booked successfully! Staff and owner have been notified.")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating appointment:", error)
-      alert("Failed to create appointment. Please try again.")
+      // Check if it's a double booking error from backend
+      if (error?.response?.data?.error === 'Time slot conflict') {
+        alert(error.response.data.message || "This time slot is already booked. Please select a different time.")
+      } else {
+        const errorMsg = error?.response?.data ? 
+          (typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data, null, 2)) :
+          error?.message || "Failed to create appointment. Please try again."
+        alert(`Failed to create appointment:\n${errorMsg}`)
+      }
     }
   }
 
@@ -688,19 +744,35 @@ export default function PatientAppointments() {
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
                     Preferred Time <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="time"
-                    value={newAppointment.time}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
-                    min="10:00"
-                    max="20:30"
-                    step="600"
-                    className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    required
-                  />
-                  <p className="text-xs text-gray-600 mt-1">
-                    Clinic hours: 10:00 AM - 8:30 PM (10-minute intervals)
+                  <p className="text-xs text-gray-600 mb-2">
+                    Select a 30-minute time slot (10:00 AM - 8:00 PM). Grayed out times are already booked.
                   </p>
+                  <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto p-2 border border-[var(--color-border)] rounded-lg">
+                    {generateTimeSlots().map((slot) => {
+                      const isBooked = isTimeSlotBooked(newAppointment.date, slot.value)
+                      const isSelected = newAppointment.time === slot.value
+                      return (
+                        <button
+                          key={slot.value}
+                          type="button"
+                          onClick={() => !isBooked && setNewAppointment({ ...newAppointment, time: slot.value })}
+                          disabled={isBooked}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-[var(--color-primary)] text-white'
+                              : isBooked
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
+                              : 'bg-white border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)]'
+                          }`}
+                        >
+                          {slot.display}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {!newAppointment.time && (
+                    <p className="text-xs text-red-600 mt-1">* Please select a time slot</p>
+                  )}
                 </div>
               )}
 
