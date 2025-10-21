@@ -479,8 +479,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         """Patient requests to cancel an appointment"""
         appointment = self.get_object()
         
-        # Check if user is the patient
-        if request.user != appointment.patient:
+        # Debug logging
+        print(f"[DEBUG] request.user: {request.user} (ID: {request.user.id}, type: {request.user.user_type})")
+        print(f"[DEBUG] appointment.patient: {appointment.patient} (ID: {appointment.patient.id})")
+        print(f"[DEBUG] Are they equal? {request.user == appointment.patient}")
+        print(f"[DEBUG] IDs equal? {request.user.id == appointment.patient.id}")
+        
+        # Check if user is the patient (compare by ID to be safe)
+        if request.user.id != appointment.patient.id:
             return Response(
                 {'error': 'Only the patient can request cancellation'},
                 status=status.HTTP_403_FORBIDDEN

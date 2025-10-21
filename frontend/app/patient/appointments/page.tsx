@@ -392,9 +392,10 @@ export default function PatientAppointments() {
       setSelectedAppointment(null)
       setCancelReason("")
       alert("Cancellation request submitted! Staff will review it soon.")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error requesting cancellation:", error)
-      alert("Failed to submit cancellation request. Please try again.")
+      const errorMessage = error.message || "Failed to submit cancellation request. Please try again."
+      alert(errorMessage)
     }
   }
 

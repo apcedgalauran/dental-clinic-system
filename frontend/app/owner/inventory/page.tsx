@@ -1,13 +1,96 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, AlertTriangle } from "lucide-react"
+import { api } from "@/lib/api"
 
 export default function OwnerInventory() {
   const [showAddModal, setShowAddModal] = useState(false)
+  const [inventory, setInventory] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [formData, setFormData] = useState({
+    name: "",
+    category: "",
+    quantity: "",
+    min_stock: "",
+    supplier: "",
+    cost: "",
+  })
 
-  // Remove sample data - ready for testing add/edit/delete
-  const inventory: any[] = []
+  // Fetch inventory items on component mount
+  useEffect(() => {
+    fetchInventory()
+  }, [])
+
+  const fetchInventory = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+      
+      const data = await api.getInventory(token)
+      setInventory(data)
+    } catch (error) {
+      console.error("Failed to fetch inventory:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        alert("Please login to add inventory items")
+        return
+      }
+
+      // Convert numeric fields to numbers
+      const itemData = {
+        name: formData.name,
+        category: formData.category,
+        quantity: parseInt(formData.quantity),
+        min_stock: parseInt(formData.min_stock),
+        supplier: formData.supplier,
+        cost: parseFloat(formData.cost),
+      }
+
+      await api.createInventoryItem(itemData, token)
+      
+      // Reset form
+      setFormData({
+        name: "",
+        category: "",
+        quantity: "",
+        min_stock: "",
+        supplier: "",
+        cost: "",
+      })
+      
+      // Close modal and refresh inventory
+      setShowAddModal(false)
+      await fetchInventory()
+      
+      alert("Inventory item added successfully!")
+    } catch (error: any) {
+      console.error("Failed to add inventory item:", error)
+      alert(error.message || "Failed to add inventory item")
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -54,7 +137,13 @@ export default function OwnerInventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {inventory.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <p className="text-lg font-medium text-[var(--color-text)]">Loading inventory...</p>
+                  </td>
+                </tr>
+              ) : inventory.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
                     <p className="text-lg font-medium text-[var(--color-text)] mb-2">No Inventory Items</p>
@@ -71,16 +160,16 @@ export default function OwnerInventory() {
                     <td className="px-6 py-4">
                       <span
                         className={
-                          item.quantity <= item.minStock ? "text-red-600 font-medium" : "text-[var(--color-text-muted)]"
+                          item.quantity <= item.min_stock ? "text-red-600 font-medium" : "text-[var(--color-text-muted)]"
                         }
                       >
                         {item.quantity}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.minStock}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.min_stock}</td>
                     <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.supplier}</td>
-                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.cost.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{item.lastUpdated}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">₱{item.cost.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-[var(--color-text-muted)]">{formatDate(item.updated_at)}</td>
                   </tr>
                 ))
               )}
@@ -103,12 +192,16 @@ export default function OwnerInventory() {
               </button>
             </div>
 
-            <form className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Item Name</label>
                   <input
                     type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
@@ -116,6 +209,10 @@ export default function OwnerInventory() {
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Category</label>
                   <input
                     type="text"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
@@ -123,6 +220,11 @@ export default function OwnerInventory() {
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Quantity</label>
                   <input
                     type="number"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    required
+                    min="0"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
@@ -130,6 +232,11 @@ export default function OwnerInventory() {
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Min Stock</label>
                   <input
                     type="number"
+                    name="min_stock"
+                    value={formData.min_stock}
+                    onChange={handleInputChange}
+                    required
+                    min="0"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
@@ -137,6 +244,10 @@ export default function OwnerInventory() {
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Supplier</label>
                   <input
                     type="text"
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>
@@ -144,6 +255,12 @@ export default function OwnerInventory() {
                   <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Cost (PHP)</label>
                   <input
                     type="number"
+                    name="cost"
+                    value={formData.cost}
+                    onChange={handleInputChange}
+                    required
+                    min="0"
+                    step="0.01"
                     className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
                 </div>

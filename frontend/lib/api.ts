@@ -220,7 +220,11 @@ export const api = {
       },
       body: JSON.stringify({ reason }),
     })
-    if (!response.ok) throw new Error("Failed to request cancellation")
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.error || errorData.detail || "Failed to request cancellation"
+      throw new Error(errorMessage)
+    }
     return response.json()
   },
 
@@ -288,6 +292,40 @@ export const api = {
       headers: { Authorization: `Token ${token}` },
     })
     return response.json()
+  },
+
+  createInventoryItem: async (data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to create inventory item')
+    return response.json()
+  },
+
+  updateInventoryItem: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/${id}/`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to update inventory item')
+    return response.json()
+  },
+
+  deleteInventoryItem: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to delete inventory item')
   },
 
   // Billing endpoints
