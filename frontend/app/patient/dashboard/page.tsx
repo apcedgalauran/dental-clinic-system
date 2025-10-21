@@ -203,22 +203,6 @@ export default function PatientDashboard() {
           <p className="text-center py-8 text-[var(--color-text-muted)]">No upcoming appointments</p>
         )}
       </div>
-
-      {/* Tooth Analysis */}
-      <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-        <h2 className="text-xl font-semibold text-[var(--color-primary)] mb-4">Tooth Analysis</h2>
-        <div className="grid grid-cols-8 gap-2">
-          {Array.from({ length: 32 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-square bg-[var(--color-background)] border-2 border-[var(--color-primary)] rounded-lg flex items-center justify-center text-sm font-medium text-[var(--color-text)]"
-            >
-              {i + 1}
-            </div>
-          ))}
-        </div>
-        <p className="text-sm text-[var(--color-text-muted)] mt-4">Click on Profile to view full tooth chart details</p>
-      </div>
     </div>
   )
 }

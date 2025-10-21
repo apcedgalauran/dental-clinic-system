@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { Camera } from "lucide-react"
 import AvailabilityCalendar from "@/components/availability-calendar"
 import { useAuth } from "@/lib/auth"
+import { api } from "@/lib/api"
 
 export default function StaffProfile() {
-  const { user } = useAuth()
+  const { user, token, setUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState({
     firstName: "",
@@ -23,11 +24,41 @@ export default function StaffProfile() {
         firstName: user.first_name || "",
         lastName: user.last_name || "",
         email: user.email || "",
-        phone: "",
-        address: "",
+        phone: (user as any).phone || "",
+        address: (user as any).address || "",
       })
     }
   }, [user])
+
+  const handleSave = async () => {
+    if (!token || !user) return
+
+    try {
+      const updateData = {
+        first_name: profile.firstName,
+        last_name: profile.lastName,
+        email: profile.email,
+        phone: profile.phone,
+        address: profile.address,
+      }
+
+      const updatedUser = await api.updateStaff(user.id, updateData, token)
+      
+      // Update the user in auth context
+      setUser({
+        ...user,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        email: updatedUser.email,
+      })
+      
+      setIsEditing(false)
+      alert("Profile updated successfully!")
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      alert("Failed to update profile.")
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,9 +88,11 @@ export default function StaffProfile() {
           </div>
           <div>
             <h2 className="text-2xl font-semibold text-[var(--color-text)]">
-              Dr. {user?.first_name} {user?.last_name}
+              {user?.role === 'dentist' ? 'Dr.' : ''} {user?.first_name} {user?.last_name}
             </h2>
-            <p className="text-[var(--color-text-muted)]">Dentist</p>
+            <p className="text-[var(--color-text-muted)]">
+              {user?.role === 'receptionist' ? 'Receptionist' : user?.role === 'dentist' ? 'Dentist' : 'Staff'}
+            </p>
           </div>
         </div>
 
@@ -129,7 +162,7 @@ export default function StaffProfile() {
               Cancel
             </button>
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={handleSave}
               className="px-6 py-2.5 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
             >
               Save Changes

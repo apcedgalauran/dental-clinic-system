@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, User, Calendar, FileText, CreditCard, LogOut, Menu, X, ChevronDown } from "lucide-react"
+import { LayoutDashboard, User, Calendar, FileText, CreditCard, LogOut, Menu, X } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import ChatbotWidget from "@/components/chatbot-widget"
 
@@ -78,7 +78,6 @@ export default function PatientLayout({ children }: Readonly<{ children: React.R
               <div className="w-10 h-10 bg-[var(--color-accent)] rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
               </div>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isProfileOpen && (
