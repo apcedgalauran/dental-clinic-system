@@ -19,7 +19,9 @@ import {
   FileText,
   DollarSign,
   Camera,
-  Upload
+  Upload,
+  Archive,
+  ArchiveRestore
 } from "lucide-react"
 import TeethImageUpload from "@/components/teeth-image-upload"
 import DocumentUpload from "@/components/document-upload"
@@ -54,7 +56,7 @@ interface Patient {
 export default function OwnerPatients() {
   const { token } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive" | "new">("all")
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive" | "new" | "archived">("all")
   const [showAddModal, setShowAddModal] = useState(false)
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [editingRow, setEditingRow] = useState<number | null>(null)
@@ -63,6 +65,7 @@ export default function OwnerPatients() {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
+  const [archivedPatients, setArchivedPatients] = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [newPatient, setNewPatient] = useState({
@@ -152,6 +155,31 @@ export default function OwnerPatients() {
         })
         
         setPatients(transformedPatients)
+
+        // Fetch archived patients
+        if (activeTab === "archived") {
+          const archivedResponse = await api.getArchivedPatients(token)
+          const transformedArchived = archivedResponse.map((user: any) => ({
+            id: user.id,
+            name: `${user.first_name} ${user.last_name}`,
+            email: user.email,
+            phone: user.phone || "N/A",
+            lastVisit: user.last_appointment_date || user.created_at?.split('T')[0] || "N/A",
+            status: "inactive" as const,
+            address: user.address || "N/A",
+            dateOfBirth: user.birthday || "N/A",
+            age: user.age || 0,
+            gender: user.gender || "Not specified",
+            medicalHistory: [],
+            allergies: [],
+            upcomingAppointments: [],
+            pastAppointments: 0,
+            totalBilled: 0,
+            balance: 0,
+            notes: "",
+          }))
+          setArchivedPatients(transformedArchived)
+        }
       } catch (error) {
         console.error("Error fetching data:", error)
       } finally {
@@ -160,10 +188,65 @@ export default function OwnerPatients() {
     }
 
     fetchData()
-  }, [token])
+  }, [token, activeTab])
+
+  // Handle archive patient
+  const handleArchive = async (patientId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm("Are you sure you want to archive this patient? They will be moved to the Archived tab.")) return
+    
+    try {
+      await api.archivePatient(patientId, token!)
+      // Remove from current patients and refresh
+      setPatients(patients.filter(p => p.id !== patientId))
+      alert("Patient archived successfully!")
+    } catch (error) {
+      console.error("Error archiving patient:", error)
+      alert("Failed to archive patient")
+    }
+  }
+
+  // Handle restore patient
+  const handleRestore = async (patientId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm("Are you sure you want to restore this patient?")) return
+    
+    try {
+      await api.restorePatient(patientId, token!)
+      // Remove from archived and refresh
+      setArchivedPatients(archivedPatients.filter(p => p.id !== patientId))
+      // Refresh active patients list
+      const response = await api.getPatients(token!)
+      const transformedPatients = response.map((user: any) => ({
+        id: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        email: user.email,
+        phone: user.phone || "N/A",
+        lastVisit: user.last_appointment_date || user.created_at?.split('T')[0] || "N/A",
+        status: user.is_active_patient ? "active" as const : "inactive" as const,
+        address: user.address || "N/A",
+        dateOfBirth: user.birthday || "N/A",
+        age: user.age || 0,
+        gender: user.gender || "Not specified",
+        medicalHistory: [],
+        allergies: [],
+        upcomingAppointments: [],
+        pastAppointments: 0,
+        totalBilled: 0,
+        balance: 0,
+        notes: "",
+      }))
+      setPatients(transformedPatients)
+      alert("Patient restored successfully!")
+    } catch (error) {
+      console.error("Error restoring patient:", error)
+      alert("Failed to restore patient")
+    }
+  }
 
   // Remove mock patients - only use real patient data from API
-  const filteredPatients = patients.filter((patient) => {
+  const displayPatients = activeTab === "archived" ? archivedPatients : patients
+  const filteredPatients = displayPatients.filter((patient) => {
     const matchesSearch =
       patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -171,6 +254,7 @@ export default function OwnerPatients() {
 
     const matchesTab =
       activeTab === "all" ||
+      activeTab === "archived" ||
       (activeTab === "active" && patient.status === "active") ||
       (activeTab === "inactive" && patient.status === "inactive") ||
       (activeTab === "new" && new Date(patient.lastVisit).getMonth() === new Date().getMonth())
@@ -321,6 +405,7 @@ export default function OwnerPatients() {
             { id: "active", label: "Active" },
             { id: "inactive", label: "Inactive" },
             { id: "new", label: "New This Month" },
+            { id: "archived", label: "Archived" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -393,20 +478,39 @@ export default function OwnerPatients() {
                         >
                           <Eye className="w-4 h-4 text-[var(--color-primary)]" />
                         </button>
-                        <button
-                          onClick={(e) => handleEdit(patient, e)}
-                          className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4 text-blue-600" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(patient.id, e)}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </button>
+                        {activeTab !== "archived" ? (
+                          <>
+                            <button
+                              onClick={(e) => handleEdit(patient, e)}
+                              className="p-2 hover:bg-[var(--color-background)] rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4 text-blue-600" />
+                            </button>
+                            <button
+                              onClick={(e) => handleArchive(patient.id, e)}
+                              className="p-2 hover:bg-orange-50 rounded-lg transition-colors"
+                              title="Archive Patient"
+                            >
+                              <Archive className="w-4 h-4 text-orange-600" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(patient.id, e)}
+                              className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={(e) => handleRestore(patient.id, e)}
+                            className="p-2 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Restore Patient"
+                          >
+                            <ArchiveRestore className="w-4 h-4 text-green-600" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

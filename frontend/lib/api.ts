@@ -286,6 +286,14 @@ export const api = {
     return response.json()
   },
 
+  getPatientById: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/users/${patientId}/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch patient')
+    return response.json()
+  },
+
   // Inventory endpoints
   getInventory: async (token: string) => {
     const response = await fetch(`${API_BASE_URL}/inventory/`, {
@@ -651,4 +659,331 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch unread count')
     return response.json()
   },
+
+  // Patient Intake Form endpoints
+  getIntakeForms: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/intake-forms/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch intake forms')
+    return response.json()
+  },
+
+  getIntakeFormByPatient: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/intake-forms/by_patient/?patient_id=${patientId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch intake form')
+    return response.json()
+  },
+
+  createIntakeForm: async (data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/intake-forms/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to create intake form')
+    return response.json()
+  },
+
+  updateIntakeForm: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/intake-forms/${id}/`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to update intake form')
+    return response.json()
+  },
+
+  deleteIntakeForm: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/intake-forms/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to delete intake form')
+    return response.json()
+  },
+
+  // File Attachment endpoints
+  getFileAttachments: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/file-attachments/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch file attachments')
+    return response.json()
+  },
+
+  getFilesByPatient: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/file-attachments/by_patient/?patient_id=${patientId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch files')
+    return response.json()
+  },
+
+  uploadFile: async (formData: FormData, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/file-attachments/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+      body: formData,
+    })
+    if (!response.ok) throw new Error('Failed to upload file')
+    return response.json()
+  },
+
+  deleteFile: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/file-attachments/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to delete file')
+    return response.json()
+  },
+
+  // Clinical Notes endpoints
+  getClinicalNotes: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/clinical-notes/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch clinical notes')
+    return response.json()
+  },
+
+  getNotesByPatient: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/clinical-notes/by_patient/?patient_id=${patientId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch notes')
+    return response.json()
+  },
+
+  createClinicalNote: async (data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/clinical-notes/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to create clinical note')
+    return response.json()
+  },
+
+  updateClinicalNote: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/clinical-notes/${id}/`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to update clinical note')
+    return response.json()
+  },
+
+  deleteClinicalNote: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/clinical-notes/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to delete clinical note')
+    return response.json()
+  },
+
+  // Treatment Assignment endpoints
+  getTreatmentAssignments: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/treatment-assignments/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch treatment assignments')
+    return response.json()
+  },
+
+  getAssignmentsByPatient: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/treatment-assignments/by_patient/?patient_id=${patientId}`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch assignments')
+    return response.json()
+  },
+
+  createTreatmentAssignment: async (data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/treatment-assignments/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to create treatment assignment')
+    return response.json()
+  },
+
+  updateTreatmentAssignment: async (id: number, data: any, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/treatment-assignments/${id}/`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to update treatment assignment')
+    return response.json()
+  },
+
+  updateTreatmentStatus: async (id: number, status: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/treatment-assignments/${id}/update_status/`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    })
+    if (!response.ok) throw new Error('Failed to update treatment status')
+    return response.json()
+  },
+
+  deleteTreatmentAssignment: async (id: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/treatment-assignments/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to delete treatment assignment')
+    return response.json()
+  },
+
+  // Archive/Restore Patient endpoints
+  archivePatient: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/users/${patientId}/archive/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to archive patient')
+    return response.json()
+  },
+
+  restorePatient: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/users/${patientId}/restore/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to restore patient')
+    return response.json()
+  },
+
+  getArchivedPatients: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/users/archived_patients/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch archived patients')
+    return response.json()
+  },
+
+  // Export Patient Records endpoint
+  exportPatientRecords: async (patientId: number, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/users/${patientId}/export_records/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to export patient records')
+    return response.json()
+  },
 }
+
+// Export all API functions
+export const {
+  login,
+  register,
+  logout,
+  getProfile,
+  updateProfile,
+  getServices,
+  createService,
+  updateService,
+  deleteService,
+  getAppointments,
+  createAppointment,
+  updateAppointment,
+  deleteAppointment,
+  getBookedSlots,
+  requestReschedule,
+  approveReschedule,
+  rejectReschedule,
+  requestCancel,
+  approveCancel,
+  rejectCancel,
+  markAppointmentComplete,
+  markAppointmentMissed,
+  getPatients,
+  getPatientById,
+  getInventory,
+  createInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem,
+  getBilling,
+  getStaff,
+  createStaff,
+  deleteStaff,
+  updateStaff,
+  getAnalytics,
+  uploadTeethImage,
+  getLatestTeethImage,
+  getPatientTeethImages,
+  updateBillingStatus,
+  getBillingByStatus,
+  getDentalRecords,
+  getDentalRecord,
+  createDentalRecord,
+  getDocuments,
+  uploadDocument,
+  deleteDocument,
+  requestPasswordReset,
+  resetPassword,
+  getStaffAvailability,
+  updateStaffAvailability,
+  getAvailableStaffByDate,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getUnreadNotificationCount,
+  getAppointmentNotifications,
+  markAppointmentNotificationRead,
+  markAllAppointmentNotificationsRead,
+  getAppointmentNotificationUnreadCount,
+  getIntakeForms,
+  getIntakeFormByPatient,
+  createIntakeForm,
+  updateIntakeForm,
+  deleteIntakeForm,
+  getFileAttachments,
+  getFilesByPatient,
+  uploadFile,
+  deleteFile,
+  getClinicalNotes,
+  getNotesByPatient,
+  createClinicalNote,
+  updateClinicalNote,
+  deleteClinicalNote,
+  getTreatmentAssignments,
+  getAssignmentsByPatient,
+  createTreatmentAssignment,
+  updateTreatmentAssignment,
+  updateTreatmentStatus,
+  deleteTreatmentAssignment,
+  archivePatient,
+  restorePatient,
+  getArchivedPatients,
+  exportPatientRecords,
+} = api

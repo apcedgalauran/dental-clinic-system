@@ -22,6 +22,7 @@ class User(AbstractUser):
     age = models.IntegerField(null=True, blank=True)
     profile_picture = models.ImageField(upload_to='profiles/', null=True, blank=True)
     is_active_patient = models.BooleanField(default=True)
+    is_archived = models.BooleanField(default=False)  # NEW: For archiving patients
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Override email to make it unique and required
@@ -372,3 +373,120 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"Password Reset - {self.user.email} - {self.created_at.date()}"
+
+
+class PatientIntakeForm(models.Model):
+    """Patient intake form data"""
+    patient = models.OneToOneField(User, on_delete=models.CASCADE, related_name='intake_form')
+    
+    # Medical History
+    allergies = models.TextField(blank=True, help_text="List any allergies")
+    current_medications = models.TextField(blank=True, help_text="List current medications")
+    medical_conditions = models.TextField(blank=True, help_text="List any medical conditions")
+    previous_dental_treatments = models.TextField(blank=True)
+    
+    # Emergency Contact
+    emergency_contact_name = models.CharField(max_length=200, blank=True)
+    emergency_contact_phone = models.CharField(max_length=20, blank=True)
+    emergency_contact_relationship = models.CharField(max_length=100, blank=True)
+    
+    # Insurance Information
+    insurance_provider = models.CharField(max_length=200, blank=True)
+    insurance_policy_number = models.CharField(max_length=100, blank=True)
+    
+    # Additional Information
+    dental_concerns = models.TextField(blank=True, help_text="Current dental concerns")
+    preferred_dentist = models.CharField(max_length=200, blank=True)
+    
+    # Metadata
+    filled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='filled_intake_forms')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Patient Intake Form'
+        verbose_name_plural = 'Patient Intake Forms'
+
+    def __str__(self):
+        return f"Intake Form - {self.patient.get_full_name()}"
+
+
+class FileAttachment(models.Model):
+    """File attachments for patients (X-rays, documents, etc.)"""
+    FILE_TYPES = (
+        ('xray', 'X-Ray'),
+        ('photo', 'Photo'),
+        ('document', 'Document'),
+        ('report', 'Report'),
+        ('other', 'Other'),
+    )
+    
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='file_attachments')
+    file = models.FileField(upload_to='patient_files/%Y/%m/%d/')
+    file_type = models.CharField(max_length=20, choices=FILE_TYPES, default='document')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    file_size = models.IntegerField(default=0, help_text="File size in bytes")
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='uploaded_files')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'File Attachment'
+        verbose_name_plural = 'File Attachments'
+
+    def __str__(self):
+        return f"{self.title} - {self.patient.get_full_name()}"
+    
+    def get_file_extension(self):
+        """Get file extension"""
+        import os
+        return os.path.splitext(self.file.name)[1].lower()
+
+
+class ClinicalNote(models.Model):
+    """Clinical notes for patients"""
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='clinical_notes')
+    appointment = models.ForeignKey(Appointment, on_delete=models.SET_NULL, null=True, blank=True, related_name='clinical_notes')
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='authored_notes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Clinical Note'
+        verbose_name_plural = 'Clinical Notes'
+
+    def __str__(self):
+        return f"Note - {self.patient.get_full_name()} - {self.created_at.date()}"
+
+
+class TreatmentAssignment(models.Model):
+    """Treatment assignments for patients"""
+    STATUS_CHOICES = (
+        ('scheduled', 'Scheduled'),
+        ('ongoing', 'Ongoing'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='treatment_assignments')
+    treatment_plan = models.ForeignKey(TreatmentPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments')
+    treatment_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='assigned_treatments')
+    assigned_dentist = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='dentist_treatments')
+    date_assigned = models.DateTimeField(auto_now_add=True)
+    scheduled_date = models.DateField(null=True, blank=True)
+    completed_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-date_assigned']
+        verbose_name = 'Treatment Assignment'
+        verbose_name_plural = 'Treatment Assignments'
+
+    def __str__(self):
+        return f"{self.treatment_name} - {self.patient.get_full_name()} - {self.status}"

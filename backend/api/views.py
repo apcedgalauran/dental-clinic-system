@@ -12,7 +12,8 @@ from .models import (
     User, Service, Appointment, ToothChart, DentalRecord,
     Document, InventoryItem, Billing, ClinicLocation,
     TreatmentPlan, TeethImage, StaffAvailability, DentistNotification,
-    AppointmentNotification, PasswordResetToken
+    AppointmentNotification, PasswordResetToken, PatientIntakeForm,
+    FileAttachment, ClinicalNote, TreatmentAssignment
 )
 from .serializers import (
     UserSerializer, ServiceSerializer, AppointmentSerializer,
@@ -20,7 +21,8 @@ from .serializers import (
     InventoryItemSerializer, BillingSerializer, ClinicLocationSerializer,
     TreatmentPlanSerializer, TeethImageSerializer, StaffAvailabilitySerializer,
     DentistNotificationSerializer, AppointmentNotificationSerializer, 
-    PasswordResetTokenSerializer
+    PasswordResetTokenSerializer, PatientIntakeFormSerializer,
+    FileAttachmentSerializer, ClinicalNoteSerializer, TreatmentAssignmentSerializer
 )
 
 
@@ -234,6 +236,135 @@ class UserViewSet(viewsets.ModelViewSet):
         staff = User.objects.filter(user_type__in=['staff', 'owner'])
         serializer = self.get_serializer(staff, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def archive(self, request, pk=None):
+        """Archive a patient record"""
+        user = self.get_object()
+        if user.user_type != 'patient':
+            return Response({'error': 'Only patients can be archived'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.is_archived = True
+        user.save()
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk=None):
+        """Restore an archived patient record"""
+        user = self.get_object()
+        if user.user_type != 'patient':
+            return Response({'error': 'Only patients can be restored'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.is_archived = False
+        user.save()
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def archived_patients(self, request):
+        """Get all archived patients"""
+        archived = User.objects.filter(user_type='patient', is_archived=True)
+        serializer = self.get_serializer(archived, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def export_records(self, request, pk=None):
+        """Export patient records as JSON (can be converted to PDF/CSV on frontend)"""
+        user = self.get_object()
+        if user.user_type != 'patient':
+            return Response({'error': 'Only patient records can be exported'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Gather all patient data
+        data = {
+            'patient_info': {
+                'id': user.id,
+                'name': user.get_full_name(),
+                'email': user.email,
+                'phone': user.phone,
+                'address': user.address,
+                'birthday': str(user.birthday) if user.birthday else None,
+                'age': user.age,
+            },
+            'appointments': [],
+            'dental_records': [],
+            'clinical_notes': [],
+            'treatment_assignments': [],
+            'billing': [],
+            'intake_form': None,
+        }
+        
+        # Get appointments
+        appointments = Appointment.objects.filter(patient=user)
+        for apt in appointments:
+            data['appointments'].append({
+                'date': str(apt.date),
+                'time': str(apt.time),
+                'status': apt.status,
+                'dentist': apt.dentist.get_full_name() if apt.dentist else None,
+                'service': apt.service.name if apt.service else None,
+                'notes': apt.notes,
+            })
+        
+        # Get dental records
+        records = DentalRecord.objects.filter(patient=user)
+        for record in records:
+            data['dental_records'].append({
+                'date': str(record.created_at.date()),
+                'treatment': record.treatment,
+                'diagnosis': record.diagnosis,
+                'notes': record.notes,
+                'created_by': record.created_by.get_full_name() if record.created_by else None,
+            })
+        
+        # Get clinical notes
+        notes = ClinicalNote.objects.filter(patient=user)
+        for note in notes:
+            data['clinical_notes'].append({
+                'date': str(note.created_at.date()),
+                'content': note.content,
+                'author': note.author.get_full_name() if note.author else None,
+            })
+        
+        # Get treatment assignments
+        assignments = TreatmentAssignment.objects.filter(patient=user)
+        for assignment in assignments:
+            data['treatment_assignments'].append({
+                'treatment': assignment.treatment_name,
+                'description': assignment.description,
+                'status': assignment.status,
+                'assigned_date': str(assignment.date_assigned.date()),
+                'assigned_by': assignment.assigned_by.get_full_name() if assignment.assigned_by else None,
+            })
+        
+        # Get billing records
+        billings = Billing.objects.filter(patient=user)
+        for billing in billings:
+            data['billing'].append({
+                'date': str(billing.created_at.date()),
+                'amount': str(billing.amount),
+                'description': billing.description,
+                'status': billing.status,
+            })
+        
+        # Get intake form
+        try:
+            intake_form = PatientIntakeForm.objects.get(patient=user)
+            data['intake_form'] = {
+                'allergies': intake_form.allergies,
+                'current_medications': intake_form.current_medications,
+                'medical_conditions': intake_form.medical_conditions,
+                'dental_concerns': intake_form.dental_concerns,
+                'emergency_contact': {
+                    'name': intake_form.emergency_contact_name,
+                    'phone': intake_form.emergency_contact_phone,
+                    'relationship': intake_form.emergency_contact_relationship,
+                }
+            }
+        except PatientIntakeForm.DoesNotExist:
+            pass
+        
+        return Response(data)
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -1029,4 +1160,146 @@ class AppointmentNotificationViewSet(viewsets.ModelViewSet):
             count = AppointmentNotification.objects.filter(recipient=user, is_read=False).count()
             return Response({'unread_count': count})
         return Response({'unread_count': 0})
+
+
+class PatientIntakeFormViewSet(viewsets.ModelViewSet):
+    queryset = PatientIntakeForm.objects.all()
+    serializer_class = PatientIntakeFormSerializer
+
+    def get_queryset(self):
+        """Filter based on user role"""
+        user = self.request.user
+        if user.user_type == 'patient':
+            # Patients can only see their own form
+            return PatientIntakeForm.objects.filter(patient=user)
+        elif user.user_type in ['staff', 'owner']:
+            # Staff and owner can see all forms
+            return PatientIntakeForm.objects.all()
+        return PatientIntakeForm.objects.none()
+
+    @action(detail=False, methods=['get'])
+    def by_patient(self, request):
+        """Get intake form for a specific patient"""
+        patient_id = request.query_params.get('patient_id')
+        if not patient_id:
+            return Response({'error': 'patient_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            intake_form = PatientIntakeForm.objects.get(patient_id=patient_id)
+            serializer = self.get_serializer(intake_form)
+            return Response(serializer.data)
+        except PatientIntakeForm.DoesNotExist:
+            return Response({'error': 'Intake form not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class FileAttachmentViewSet(viewsets.ModelViewSet):
+    queryset = FileAttachment.objects.all()
+    serializer_class = FileAttachmentSerializer
+
+    def get_queryset(self):
+        """Filter based on user role"""
+        user = self.request.user
+        if user.user_type == 'patient':
+            # Patients can only see their own files
+            return FileAttachment.objects.filter(patient=user)
+        elif user.user_type in ['staff', 'owner']:
+            # Staff and owner can see all files
+            return FileAttachment.objects.all()
+        return FileAttachment.objects.none()
+
+    def perform_create(self, serializer):
+        """Set file size and uploaded_by automatically"""
+        uploaded_file = self.request.FILES.get('file')
+        file_size = uploaded_file.size if uploaded_file else 0
+        serializer.save(uploaded_by=self.request.user, file_size=file_size)
+
+    @action(detail=False, methods=['get'])
+    def by_patient(self, request):
+        """Get all file attachments for a specific patient"""
+        patient_id = request.query_params.get('patient_id')
+        if not patient_id:
+            return Response({'error': 'patient_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        files = FileAttachment.objects.filter(patient_id=patient_id)
+        serializer = self.get_serializer(files, many=True)
+        return Response(serializer.data)
+
+
+class ClinicalNoteViewSet(viewsets.ModelViewSet):
+    queryset = ClinicalNote.objects.all()
+    serializer_class = ClinicalNoteSerializer
+
+    def get_queryset(self):
+        """Filter based on user role"""
+        user = self.request.user
+        if user.user_type == 'patient':
+            # Patients can only see their own notes (read-only)
+            return ClinicalNote.objects.filter(patient=user)
+        elif user.user_type in ['staff', 'owner']:
+            # Staff and owner can see all notes
+            return ClinicalNote.objects.all()
+        return ClinicalNote.objects.none()
+
+    def perform_create(self, serializer):
+        """Set author automatically"""
+        serializer.save(author=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def by_patient(self, request):
+        """Get all clinical notes for a specific patient"""
+        patient_id = request.query_params.get('patient_id')
+        if not patient_id:
+            return Response({'error': 'patient_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        notes = ClinicalNote.objects.filter(patient_id=patient_id)
+        serializer = self.get_serializer(notes, many=True)
+        return Response(serializer.data)
+
+
+class TreatmentAssignmentViewSet(viewsets.ModelViewSet):
+    queryset = TreatmentAssignment.objects.all()
+    serializer_class = TreatmentAssignmentSerializer
+
+    def get_queryset(self):
+        """Filter based on user role"""
+        user = self.request.user
+        if user.user_type == 'patient':
+            # Patients can only see their own assignments
+            return TreatmentAssignment.objects.filter(patient=user)
+        elif user.user_type in ['staff', 'owner']:
+            # Staff and owner can see all assignments
+            return TreatmentAssignment.objects.all()
+        return TreatmentAssignment.objects.none()
+
+    def perform_create(self, serializer):
+        """Set assigned_by automatically"""
+        serializer.save(assigned_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def by_patient(self, request):
+        """Get all treatment assignments for a specific patient"""
+        patient_id = request.query_params.get('patient_id')
+        if not patient_id:
+            return Response({'error': 'patient_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        assignments = TreatmentAssignment.objects.filter(patient_id=patient_id)
+        serializer = self.get_serializer(assignments, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        """Update treatment assignment status"""
+        assignment = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status not in dict(TreatmentAssignment.STATUS_CHOICES):
+            return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        assignment.status = new_status
+        if new_status == 'completed' and not assignment.completed_date:
+            assignment.completed_date = date.today()
+        assignment.save()
+        
+        serializer = self.get_serializer(assignment)
+        return Response(serializer.data)
 

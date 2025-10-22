@@ -3,7 +3,8 @@ from .models import (
     User, Service, Appointment, ToothChart, DentalRecord, 
     Document, InventoryItem, Billing, ClinicLocation, 
     TreatmentPlan, TeethImage, StaffAvailability, DentistNotification, 
-    AppointmentNotification, PasswordResetToken
+    AppointmentNotification, PasswordResetToken, PatientIntakeForm,
+    FileAttachment, ClinicalNote, TreatmentAssignment
 )
 
 # Constants for repeated string literals
@@ -17,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'user_type', 
                   'role', 'phone', 'address', 'birthday', 'age', 'profile_picture', 
-                  'is_active_patient', 'created_at', 'last_appointment_date']
+                  'is_active_patient', 'is_archived', 'created_at', 'last_appointment_date']
         extra_kwargs = {'password': {'write_only': True}}
 
     def get_last_appointment_date(self, obj):
@@ -196,3 +197,64 @@ class PasswordResetTokenSerializer(serializers.ModelSerializer):
         model = PasswordResetToken
         fields = ['id', 'user', 'token', 'created_at', 'expires_at', 'is_used']
         read_only_fields = ['created_at', 'expires_at', 'is_used']
+
+
+class PatientIntakeFormSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
+    filled_by_name = serializers.CharField(source='filled_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = PatientIntakeForm
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class FileAttachmentSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    file_url = serializers.SerializerMethodField()
+    file_extension = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FileAttachment
+        fields = '__all__'
+        read_only_fields = ['uploaded_at', 'file_size']
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+    
+    def get_file_extension(self, obj):
+        return obj.get_file_extension()
+
+
+class ClinicalNoteSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
+    author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    appointment_date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ClinicalNote
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_appointment_date(self, obj):
+        if obj.appointment:
+            return str(obj.appointment.date)
+        return None
+
+
+class TreatmentAssignmentSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source=PATIENT_FULL_NAME, read_only=True)
+    assigned_by_name = serializers.CharField(source='assigned_by.get_full_name', read_only=True)
+    assigned_dentist_name = serializers.CharField(source='assigned_dentist.get_full_name', read_only=True)
+    treatment_plan_title = serializers.CharField(source='treatment_plan.title', read_only=True)
+
+    class Meta:
+        model = TreatmentAssignment
+        fields = '__all__'
+        read_only_fields = ['date_assigned']

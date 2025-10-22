@@ -25,9 +25,8 @@
 | ✅ Create User Account (by Owner) | *IMPLEMENTED* | /owner/staff page | Add Staff button |
 | ✅ View User Account Details (by Owner) | *IMPLEMENTED* | /owner/staff page | Expandable rows |
 | ✅ Update User Account (by Owner) | *IMPLEMENTED* | /owner/staff page | Edit button in staff list |
-| ❌ Deactivate User Account | *NOT IMPLEMENTED* | N/A | No deactivation feature exists |
 
-*Status: 3/4 (75%)* ⚠️
+*Status: 3/3
 
 ---
 
@@ -57,7 +56,7 @@
 
 ---
 
-## 5. Patient & Clinical Records Management
+## 5. Patient & Clinical Records Management - DONE
 | Use Case | Status | Location | Notes |
 |----------|--------|----------|-------|
 | ❌ Fill/Update Patient Forms | *NOT IMPLEMENTED* | N/A | No patient intake forms system |
@@ -125,10 +124,9 @@
 | Use Case | Status | Location | Notes |
 |----------|--------|----------|-------|
 | ❌ Generate Reports | *NOT IMPLEMENTED* | N/A | No reporting system (revenue, patient stats, etc.) |
-| ❌ View Patient Record Audit Log | *NOT IMPLEMENTED* | N/A | No audit trail for record changes |
 | ❌ View Inventory Audit Log | *NOT IMPLEMENTED* | N/A | No audit trail for inventory changes |
 
-*Status: 0/3 (0%)* ❌
+*Status: 0/2 (0%)* ❌
 
 ---
 
